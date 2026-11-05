@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 import 'core/auth/auth_session.dart';
 import 'core/di/app_provider.dart';
 import 'core/notification/notification_service.dart';
-import 'core/route/RoleHomeRouter.dart';
+import 'app/route/RoleHomeRouter.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/screens/login_screen.dart';
 import 'firebase_options.dart';
