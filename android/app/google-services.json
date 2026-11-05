@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "399236516311",
+    "project_id": "equiprent-app",
+    "storage_bucket": "equiprent-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:399236516311:android:18fb3ded7db9090d0ae392",
+        "android_client_info": {
+          "package_name": "com.example.thuethietbi_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBsBepPXPH8rOjqMIETNV7IVou_WQ6yd6U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
