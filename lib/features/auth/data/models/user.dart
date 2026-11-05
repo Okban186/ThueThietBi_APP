@@ -1,3 +1,4 @@
+import 'package:thuethietbi_app/features/auth/data/models/role.dart';
 import 'package:thuethietbi_app/features/auth/data/models/staff.dart';
 
 class User {
@@ -27,7 +28,7 @@ class User {
   final DateTime? lastLoginAt;
   final DateTime? createdAt;
   final DateTime? updatedAt;
-  final List<String> roles;
+  final List<Role> roles;
   final String? avatarUrl;
   final Staff? staff; // Khai báo thêm trường staff (có thể null nếu user đó không phải nhân viên)
 
@@ -43,8 +44,8 @@ class User {
     createdAt: _date(json['createdAt']),
     updatedAt: _date(json['updatedAt']),
     avatarUrl: json['avatarUrl'] as String?, // Bổ sung gán avatarUrl từ json
-    roles: (json['roles'] as List<dynamic>? ?? const [])
-        .map((e) => e.toString())
+    roles: (json['roles'] as List<dynamic>? ?? [])
+        .map((e) => Role.fromJson(e as Map<String, dynamic>))
         .toList(),
     // Parse đối tượng staff nếu API trả về trường này
     staff: json['staff'] != null
