@@ -227,7 +227,7 @@ class _AppDrawer extends State<AppDrawer> {
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       child: UserProfileCard(
         name: user!.fullName,
-        role: user.roles.join(','),
+        role: user.roles.map((role) => role.name).join(', '),
         avatarUrl: user.avatarUrl,
         onTap: () {
           Navigator.of(context).pop();

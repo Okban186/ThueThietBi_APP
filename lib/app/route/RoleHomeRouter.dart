@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:thuethietbi_app/features/dashboard/presentation/sales/sales_main_layout.dart';
 import 'package:thuethietbi_app/shared/widgets/shared_widgets_test_screen.dart';
 
 import '../../features/auth/data/models/user.dart';
@@ -24,9 +25,9 @@ class RoleHomeRouter extends StatelessWidget {
     //   return const ManagerHomeScreen();
     // }
 
-    // if (roles.contains('SALES')) {
-    //   return const SalesHomeScreen();
-    // }
+    if (roles.contains('SALES')) {
+      return const SalesMainLayout();
+    }
 
     // if (roles.contains('STOREKEEPER')) {
     //   return const StorekeeperHomeScreen();

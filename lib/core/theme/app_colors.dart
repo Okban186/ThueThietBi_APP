@@ -11,6 +11,10 @@ abstract final class AppColors {
   static const surface = Color(0xFFFFFFFF);
   static const surfaceSecondary = Color(0xFFF7F9FE);
 
+  // Văn bản trên nền màu thương hiệu (header xanh).
+  static const onPrimary = Color(0xFFFFFFFF);
+  static const onPrimarySecondary = Color(0xFFD6E2FF);
+
   // Văn bản.
   static const textPrimary = Color(0xFF142B55);
   static const textSecondary = Color(0xFF647796);
