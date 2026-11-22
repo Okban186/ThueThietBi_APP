@@ -51,7 +51,10 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       );
   }
 
-  Future<void> _run(Future<void> Function() action, String successMessage) async {
+  Future<void> _run(
+    Future<void> Function() action,
+    String successMessage,
+  ) async {
     setState(() => _isSubmitting = true);
 
     try {
@@ -163,7 +166,9 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                 RadioListTile<String>(
                   value: role.code,
                   title: Text(role.name),
-                  subtitle: role.description == null ? null : Text(role.description!),
+                  subtitle: role.description == null
+                      ? null
+                      : Text(role.description!),
                 ),
             ],
           ),
@@ -173,10 +178,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
 
     if (roleCode == null || roleCode == user.role?.code) return;
 
-    await _run(
-      () => provider.updateRole(user.id, roleCode),
-      'Đã đổi vai trò.',
-    );
+    await _run(() => provider.updateRole(user.id, roleCode), 'Đã đổi vai trò.');
   }
 
   Future<void> _changeStatus(UserAccount user) async {
@@ -218,7 +220,8 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
 
     if (status != UserAccountStatus.active) {
       final confirmed = await _confirm(
-        title: '${status == UserAccountStatus.locked ? 'Khóa' : 'Ngừng hoạt động'} tài khoản?',
+        title:
+            '${status == UserAccountStatus.locked ? 'Khóa' : 'Ngừng hoạt động'} tài khoản?',
         message:
             '${user.fullName} sẽ bị đăng xuất ngay và không thể đăng nhập cho đến khi được mở lại.',
         confirmLabel: 'Xác nhận',
@@ -354,9 +357,15 @@ class _InfoCard extends StatelessWidget {
       (
         Icons.login_rounded,
         'Đăng nhập gần nhất',
-        user.lastLoginAt == null ? 'Chưa đăng nhập' : DateFormatter.relative(user.lastLoginAt!),
+        user.lastLoginAt == null
+            ? 'Chưa đăng nhập'
+            : DateFormatter.relative(user.lastLoginAt!),
       ),
-      (Icons.schedule_rounded, 'Ngày tạo', DateFormatter.date(user.createdAt.toLocal())),
+      (
+        Icons.schedule_rounded,
+        'Ngày tạo',
+        DateFormatter.date(user.createdAt.toLocal()),
+      ),
     ];
 
     return Container(
@@ -509,20 +518,26 @@ class _ResetPasswordDialogState extends State<_ResetPasswordDialog> {
               decoration: InputDecoration(
                 labelText: 'Mật khẩu mới',
                 suffixIcon: IconButton(
-                  icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                  icon: Icon(
+                    _obscure
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                  ),
                   onPressed: () => setState(() => _obscure = !_obscure),
                 ),
               ),
-              validator: (value) =>
-                  (value ?? '').length < 6 ? 'Mật khẩu tối thiểu 6 ký tự.' : null,
+              validator: (value) => (value ?? '').length < 6
+                  ? 'Mật khẩu tối thiểu 6 ký tự.'
+                  : null,
             ),
             const SizedBox(height: AppSpacing.md),
             TextFormField(
               controller: _confirmController,
               obscureText: _obscure,
               decoration: const InputDecoration(labelText: 'Nhập lại mật khẩu'),
-              validator: (value) =>
-                  value != _passwordController.text ? 'Mật khẩu nhập lại không khớp.' : null,
+              validator: (value) => value != _passwordController.text
+                  ? 'Mật khẩu nhập lại không khớp.'
+                  : null,
             ),
           ],
         ),

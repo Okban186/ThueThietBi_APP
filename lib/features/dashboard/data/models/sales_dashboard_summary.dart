@@ -1,5 +1,18 @@
 /// Loại hoạt động hiển thị ở mục "Hoạt động gần đây".
-enum SalesActivityType { reservation, contract, company }
+enum SalesActivityType {
+  reservation('RESERVATION'),
+  contract('CONTRACT'),
+  company('COMPANY');
+
+  const SalesActivityType(this.code);
+
+  final String code;
+
+  static SalesActivityType fromCode(String code) => values.firstWhere(
+    (t) => t.code == code.toUpperCase(),
+    orElse: () => reservation,
+  );
+}
 
 class SalesRecentActivity {
   const SalesRecentActivity({
@@ -7,18 +20,29 @@ class SalesRecentActivity {
     required this.title,
     required this.description,
     required this.occurredAt,
+    this.referenceId,
   });
 
   final SalesActivityType type;
+
+  /// Id phiếu / hợp đồng / công ty liên quan.
+  final String? referenceId;
   final String title;
   final String description;
   final DateTime occurredAt;
+
+  factory SalesRecentActivity.fromJson(Map<String, dynamic> json) =>
+      SalesRecentActivity(
+        type: SalesActivityType.fromCode(json['type'] as String),
+        referenceId: json['referenceId'] as String?,
+        title: json['title'] as String,
+        description: json['description'] as String,
+        occurredAt: DateTime.parse(json['occurredAt'] as String).toLocal(),
+      );
 }
 
-/// Số liệu tổng quan của nhân viên kinh doanh.
-///
-/// Hiện dùng dữ liệu mẫu ([SalesDashboardSummary.sample]).
-/// Khi Backend có API thống kê, bổ sung `fromJson` và datasource tương ứng.
+/// Số liệu Tổng quan của nhân viên kinh doanh (`GET /api/dashboard/sales`).
+/// Chỉ tính dữ liệu do chính nhân viên đó tạo.
 class SalesDashboardSummary {
   const SalesDashboardSummary({
     required this.totalReservations,
@@ -30,80 +54,48 @@ class SalesDashboardSummary {
     required this.recentActivities,
   });
 
-  /// Tổng số phiếu đặt thuê do Sales tạo.
+  /// Chưa có dữ liệu (đang tải lần đầu).
+  const SalesDashboardSummary.empty()
+    : totalReservations = 0,
+      processingReservations = 0,
+      activeContracts = 0,
+      companies = 0,
+      rejectedContracts = 0,
+      reservationsToComplete = 0,
+      recentActivities = const [];
+
+  /// Tổng số phiếu đặt thuê đã lập.
   final int totalReservations;
 
-  /// Phiếu đang xử lý: PENDING hoặc APPROVED chưa tạo hợp đồng.
+  /// Phiếu đang xử lý: PENDING hoặc APPROVED, chưa quá hạn giữ chỗ.
   final int processingReservations;
 
   /// Hợp đồng đang hiệu lực: từ SIGNED đến DELIVERED.
   final int activeContracts;
 
-  /// Số công ty do Sales tạo (companies.created_by).
+  /// Số công ty do mình tạo (companies.created_by).
   final int companies;
 
   /// Hợp đồng bị Manager từ chối, cần chỉnh sửa và gửi lại.
   final int rejectedContracts;
 
-  /// Phiếu PENDING cần hoàn thiện (thêm model) trước khi xác nhận.
+  /// Phiếu PENDING chưa có thiết bị, cần hoàn thiện.
   final int reservationsToComplete;
 
   final List<SalesRecentActivity> recentActivities;
 
   int get pendingTaskCount => rejectedContracts + reservationsToComplete;
 
-  SalesDashboardSummary copyWith({
-    int? totalReservations,
-    int? processingReservations,
-    int? activeContracts,
-    int? companies,
-    int? rejectedContracts,
-    int? reservationsToComplete,
-    List<SalesRecentActivity>? recentActivities,
-  }) {
-    return SalesDashboardSummary(
-      totalReservations: totalReservations ?? this.totalReservations,
-      processingReservations:
-          processingReservations ?? this.processingReservations,
-      activeContracts: activeContracts ?? this.activeContracts,
-      companies: companies ?? this.companies,
-      rejectedContracts: rejectedContracts ?? this.rejectedContracts,
-      reservationsToComplete:
-          reservationsToComplete ?? this.reservationsToComplete,
-      recentActivities: recentActivities ?? this.recentActivities,
-    );
-  }
-
-  factory SalesDashboardSummary.sample({DateTime? now}) {
-    final current = now ?? DateTime.now();
-
-    return SalesDashboardSummary(
-      totalReservations: 12,
-      processingReservations: 3,
-      activeContracts: 8,
-      companies: 15,
-      rejectedContracts: 1,
-      reservationsToComplete: 2,
-      recentActivities: [
-        SalesRecentActivity(
-          type: SalesActivityType.reservation,
-          title: 'Phiếu PH-2026-0042 vừa được tạo',
-          description: 'Công ty TNHH ABC',
-          occurredAt: current.subtract(const Duration(hours: 2)),
-        ),
-        SalesRecentActivity(
-          type: SalesActivityType.contract,
-          title: 'Hợp đồng HD-2026-0018 đã được duyệt',
-          description: 'Công ty CP XYZ',
-          occurredAt: current.subtract(const Duration(hours: 5)),
-        ),
-        SalesRecentActivity(
-          type: SalesActivityType.company,
-          title: 'Thêm khách hàng mới',
-          description: 'Công ty TNHH Thịnh Vượng',
-          occurredAt: current.subtract(const Duration(days: 1)),
-        ),
-      ],
-    );
-  }
+  factory SalesDashboardSummary.fromJson(Map<String, dynamic> json) =>
+      SalesDashboardSummary(
+        totalReservations: (json['totalReservations'] as num).toInt(),
+        processingReservations: (json['processingReservations'] as num).toInt(),
+        reservationsToComplete: (json['reservationsToComplete'] as num).toInt(),
+        activeContracts: (json['activeContracts'] as num).toInt(),
+        rejectedContracts: (json['rejectedContracts'] as num).toInt(),
+        companies: (json['companies'] as num).toInt(),
+        recentActivities: (json['recentActivities'] as List<dynamic>)
+            .map((e) => SalesRecentActivity.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
 }

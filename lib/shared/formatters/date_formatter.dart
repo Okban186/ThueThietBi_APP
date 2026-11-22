@@ -48,5 +48,15 @@ abstract final class DateFormatter {
     return date(value);
   }
 
+  /// Ngày gửi lên API (DateOnly của Backend). Ví dụ: 2025-11-03
+  static String isoDate(DateTime value) {
+    return '${value.year}-${_twoDigits(value.month)}-${_twoDigits(value.day)}';
+  }
+
+  /// Ví dụ: 03/11/2025 14:05
+  static String dateTime(DateTime value) {
+    return '${date(value)} ${_twoDigits(value.hour)}:${_twoDigits(value.minute)}';
+  }
+
   static String _twoDigits(int value) => value.toString().padLeft(2, '0');
 }

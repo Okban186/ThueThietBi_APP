@@ -17,6 +17,7 @@ class SalesDashboardScreen extends StatelessWidget {
     required this.user,
     required this.roleLabel,
     required this.summary,
+    required this.onRefresh,
     required this.onOpenDrawer,
     required this.onNavigate,
   });
@@ -24,6 +25,9 @@ class SalesDashboardScreen extends StatelessWidget {
   final User user;
   final String roleLabel;
   final SalesDashboardSummary summary;
+
+  /// Kéo xuống để tải lại số liệu.
+  final Future<void> Function() onRefresh;
   final VoidCallback onOpenDrawer;
   final ValueChanged<SalesTab> onNavigate;
 
@@ -34,33 +38,44 @@ class SalesDashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.only(bottom: 96),
-        child: Column(
-          children: [
-            DashboardHeader(
-              user: user,
-              roleLabel: roleLabel,
-              bottomPadding: _overlap + AppSpacing.lg,
-              onOpenDrawer: onOpenDrawer,
-              onAvatarTap: () => onNavigate(SalesTab.account),
-            ),
-            Transform.translate(
-              offset: const Offset(0, -_overlap),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-                child: Column(
-                  children: [
-                    _OverviewCard(summary: summary, onNavigate: onNavigate),
-                    const SizedBox(height: AppSpacing.lg),
-                    _PendingTasksCard(summary: summary, onNavigate: onNavigate),
-                    const SizedBox(height: AppSpacing.lg),
-                    _RecentActivitiesCard(activities: summary.recentActivities),
-                  ],
+      child: RefreshIndicator(
+        onRefresh: onRefresh,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.only(bottom: 96),
+          child: Column(
+            children: [
+              DashboardHeader(
+                user: user,
+                roleLabel: roleLabel,
+                bottomPadding: _overlap + AppSpacing.lg,
+                onOpenDrawer: onOpenDrawer,
+                onAvatarTap: () => onNavigate(SalesTab.account),
+              ),
+              Transform.translate(
+                offset: const Offset(0, -_overlap),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.lg,
+                  ),
+                  child: Column(
+                    children: [
+                      _OverviewCard(summary: summary, onNavigate: onNavigate),
+                      const SizedBox(height: AppSpacing.lg),
+                      _PendingTasksCard(
+                        summary: summary,
+                        onNavigate: onNavigate,
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      _RecentActivitiesCard(
+                        activities: summary.recentActivities,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
