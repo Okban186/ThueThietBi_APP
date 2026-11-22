@@ -45,10 +45,14 @@ class _UserFormScreenState extends State<UserFormScreen> {
 
   late final _usernameController = TextEditingController();
   late final _passwordController = TextEditingController();
-  late final _fullNameController = TextEditingController(text: widget.user?.fullName);
+  late final _fullNameController = TextEditingController(
+    text: widget.user?.fullName,
+  );
   late final _emailController = TextEditingController(text: widget.user?.email);
   late final _phoneController = TextEditingController(text: widget.user?.phone);
-  late final _positionController = TextEditingController(text: widget.user?.position);
+  late final _positionController = TextEditingController(
+    text: widget.user?.position,
+  );
 
   late DateTime? _hireDate = widget.user?.hireDate;
   String? _roleCode;
@@ -185,7 +189,9 @@ class _UserFormScreenState extends State<UserFormScreen> {
                 autocorrect: false,
                 textInputAction: TextInputAction.next,
                 validator: (value) {
-                  if ((value ?? '').trim().isEmpty) return 'Vui lòng nhập tên đăng nhập.';
+                  if ((value ?? '').trim().isEmpty) {
+                    return 'Vui lòng nhập tên đăng nhập.';
+                  }
                   if (!_usernamePattern.hasMatch(value!.trim())) {
                     return '3–50 ký tự: chữ không dấu, số, dấu . _ -';
                   }
@@ -205,12 +211,14 @@ class _UserFormScreenState extends State<UserFormScreen> {
                           ? Icons.visibility_outlined
                           : Icons.visibility_off_outlined,
                     ),
-                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                    onPressed: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
                   ),
                 ),
                 textInputAction: TextInputAction.next,
-                validator: (value) =>
-                    (value ?? '').length < 6 ? 'Mật khẩu tối thiểu 6 ký tự.' : null,
+                validator: (value) => (value ?? '').length < 6
+                    ? 'Mật khẩu tối thiểu 6 ký tự.'
+                    : null,
               ),
               const SizedBox(height: AppSpacing.md),
               DropdownButtonFormField<String>(
@@ -224,14 +232,21 @@ class _UserFormScreenState extends State<UserFormScreen> {
                     DropdownMenuItem(value: role.code, child: Text(role.name)),
                 ],
                 onChanged: (value) => setState(() => _roleCode = value),
-                validator: (value) => value == null ? 'Vui lòng chọn vai trò.' : null,
+                validator: (value) =>
+                    value == null ? 'Vui lòng chọn vai trò.' : null,
               ),
               const Padding(
-                padding: EdgeInsets.only(top: AppSpacing.xs, left: AppSpacing.xs),
+                padding: EdgeInsets.only(
+                  top: AppSpacing.xs,
+                  left: AppSpacing.xs,
+                ),
                 child: Text(
                   'Mã nhân viên được tạo tự động theo vai trò. '
                   'Tài khoản khách hàng do bộ phận kinh doanh tạo.',
-                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ),
               const SizedBox(height: AppSpacing.xl),
@@ -293,8 +308,9 @@ class _UserFormScreenState extends State<UserFormScreen> {
                   labelText: 'Chức vụ',
                   prefixIcon: Icon(Icons.work_outline_rounded),
                 ),
-                validator: (value) =>
-                    (value ?? '').trim().length > 100 ? 'Chức vụ tối đa 100 ký tự.' : null,
+                validator: (value) => (value ?? '').trim().length > 100
+                    ? 'Chức vụ tối đa 100 ký tự.'
+                    : null,
               ),
               const SizedBox(height: AppSpacing.md),
               InkWell(
@@ -313,7 +329,9 @@ class _UserFormScreenState extends State<UserFormScreen> {
                           ),
                   ),
                   child: Text(
-                    _hireDate == null ? 'Chưa chọn' : DateFormatter.date(_hireDate!),
+                    _hireDate == null
+                        ? 'Chưa chọn'
+                        : DateFormatter.date(_hireDate!),
                     style: TextStyle(
                       color: _hireDate == null
                           ? AppColors.textDisabled
@@ -326,14 +344,20 @@ class _UserFormScreenState extends State<UserFormScreen> {
             const SizedBox(height: AppSpacing.xxl),
             FilledButton.icon(
               onPressed: _isSubmitting ? null : _submit,
-              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(50),
+              ),
               icon: _isSubmitting
                   ? const SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : Icon(widget.isEditing ? Icons.save_outlined : Icons.person_add_alt_1_rounded),
+                  : Icon(
+                      widget.isEditing
+                          ? Icons.save_outlined
+                          : Icons.person_add_alt_1_rounded,
+                    ),
               label: Text(widget.isEditing ? 'Lưu thay đổi' : 'Tạo tài khoản'),
             ),
           ],

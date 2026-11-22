@@ -235,7 +235,6 @@ class _SearchAndFilters extends StatelessWidget {
   }
 }
 
-
 class _UserCard extends StatelessWidget {
   const _UserCard({required this.user, required this.onTap});
 

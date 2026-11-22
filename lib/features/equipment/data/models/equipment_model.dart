@@ -13,6 +13,8 @@ class EquipmentModel {
     this.rentalPriceMonthly = 0,
     this.status,
     this.media = const [],
+    this.operationalUnits,
+    this.availableToday,
   });
   final String id, code, name;
   final String? manufacturer, modelNumber, description, status, unit;
@@ -20,6 +22,12 @@ class EquipmentModel {
   final Map<String, dynamic>? specifications;
   final double rentalPriceDaily, rentalPriceMonthly;
   final List<EquipmentModelMedia> media;
+
+  /// Số máy hoạt động (AVAILABLE, RESERVED, RENTED) — từ `/api/equipment-models`.
+  final int? operationalUnits;
+
+  /// Số máy khả dụng trong ngày hôm nay — từ `/api/equipment-models`.
+  final int? availableToday;
 
   factory EquipmentModel.fromJson(Map<String, dynamic> json) => EquipmentModel(
     id: json['id'] as String,
@@ -35,6 +43,8 @@ class EquipmentModel {
     rentalPriceDaily: (json['rentalPriceDaily'] as num?)?.toDouble() ?? 0,
     rentalPriceMonthly: (json['rentalPriceMonthly'] as num?)?.toDouble() ?? 0,
     status: json['status'] as String?,
+    operationalUnits: (json['operationalUnits'] as num?)?.toInt(),
+    availableToday: (json['availableToday'] as num?)?.toInt(),
     media: (json['media'] as List<dynamic>? ?? const [])
         .map((e) => EquipmentModelMedia.fromJson(e as Map<String, dynamic>))
         .toList(),

@@ -1,26 +1,27 @@
+import 'rental_contract.dart';
+
+/// Một lần đổi trạng thái hợp đồng.
 class ContractStatusHistory {
   const ContractStatusHistory({
-    required this.id,
-    required this.rentalContractId,
     required this.status,
     required this.previousStatus,
-    required this.changedBy,
-    this.changedAt,
+    required this.changedAt,
+    this.changedByName,
     this.note,
   });
-  final String id, rentalContractId, status, previousStatus, changedBy;
-  final DateTime? changedAt;
-  final String? note;
-  factory ContractStatusHistory.fromJson(Map<String, dynamic> j) =>
+
+  final RentalContractStatus status, previousStatus;
+  final DateTime changedAt;
+  final String? changedByName, note;
+
+  factory ContractStatusHistory.fromJson(Map<String, dynamic> json) =>
       ContractStatusHistory(
-        id: j['id'] as String,
-        rentalContractId: j['rentalContractId'] as String,
-        status: j['status'] as String,
-        previousStatus: j['previousStatus'] as String,
-        changedBy: j['changedBy'] as String,
-        changedAt: j['changedAt'] == null
-            ? null
-            : DateTime.parse(j['changedAt'] as String),
-        note: j['note'] as String?,
+        status: RentalContractStatus.fromCode(json['status'] as String),
+        previousStatus: RentalContractStatus.fromCode(
+          json['previousStatus'] as String,
+        ),
+        changedByName: json['changedByName'] as String?,
+        changedAt: DateTime.parse(json['changedAt'] as String).toLocal(),
+        note: json['note'] as String?,
       );
 }
