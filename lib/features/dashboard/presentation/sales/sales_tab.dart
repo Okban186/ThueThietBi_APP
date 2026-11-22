@@ -9,11 +9,7 @@ enum SalesTab {
     Icons.calendar_month_rounded,
   ),
   customers('Khách hàng', Icons.business_outlined, Icons.business_rounded),
-  contracts(
-    'Hợp đồng',
-    Icons.description_outlined,
-    Icons.description_rounded,
-  ),
+  contracts('Hợp đồng', Icons.description_outlined, Icons.description_rounded),
   account('Tài khoản', Icons.person_outline_rounded, Icons.person_rounded);
 
   const SalesTab(this.title, this.icon, this.selectedIcon);

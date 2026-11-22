@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import 'package:thuethietbi_app/core/theme/app_colors.dart';
 import 'package:thuethietbi_app/core/theme/app_spacing.dart';
 import 'package:thuethietbi_app/core/widgets/app_empty_view.dart';
+import 'package:thuethietbi_app/core/widgets/app_filter_chip.dart';
+import 'package:thuethietbi_app/core/widgets/app_scrollable_center.dart';
 
 import '../../../data/models/user_account.dart';
 import '../../providers/user_management_provider.dart';
@@ -59,7 +61,7 @@ class _UserListScreenState extends State<UserListScreen> {
     }
 
     if (provider.errorMessage != null && !provider.hasLoaded) {
-      return _ScrollableCenter(
+      return AppScrollableCenter(
         child: AppEmptyView(
           icon: Icons.cloud_off_rounded,
           title: 'Không tải được dữ liệu',
@@ -73,7 +75,7 @@ class _UserListScreenState extends State<UserListScreen> {
     }
 
     if (users.isEmpty) {
-      return const _ScrollableCenter(
+      return const AppScrollableCenter(
         child: AppEmptyView(
           icon: Icons.person_search_rounded,
           title: 'Không có tài khoản phù hợp',
@@ -166,18 +168,18 @@ class _SearchAndFilters extends StatelessWidget {
             child: ListView(
               scrollDirection: Axis.horizontal,
               children: [
-                _FilterChip(
+                AppFilterChip(
                   label: 'Tất cả',
                   selected: provider.statusFilter == null,
                   onTap: () => provider.setStatusFilter(null),
                 ),
                 for (final status in UserAccountStatus.values)
-                  _FilterChip(
+                  AppFilterChip(
                     label: status.label,
                     selected: provider.statusFilter == status,
                     onTap: () => provider.setStatusFilter(status),
                   ),
-                _FilterChip(
+                AppFilterChip(
                   label: roleName ?? 'Vai trò',
                   selected: roleName != null,
                   icon: Icons.filter_list_rounded,
@@ -233,57 +235,6 @@ class _SearchAndFilters extends StatelessWidget {
   }
 }
 
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    this.icon,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  final IconData? icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: AppSpacing.sm),
-      child: Material(
-        color: selected ? AppColors.primary : AppColors.surfaceSecondary,
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Row(
-              children: [
-                if (icon != null) ...[
-                  Icon(
-                    icon,
-                    size: 16,
-                    color: selected ? AppColors.onPrimary : AppColors.textSecondary,
-                  ),
-                  const SizedBox(width: 4),
-                ],
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                    color: selected ? AppColors.onPrimary : AppColors.textPrimary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _UserCard extends StatelessWidget {
   const _UserCard({required this.user, required this.onTap});
@@ -357,26 +308,6 @@ class _UserCard extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Cho phép kéo để tải lại cả khi nội dung là trạng thái trống.
-class _ScrollableCenter extends StatelessWidget {
-  const _ScrollableCenter({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) => SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: constraints.maxHeight),
-          child: child,
         ),
       ),
     );
