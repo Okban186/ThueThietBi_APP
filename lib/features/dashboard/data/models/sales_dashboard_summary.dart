@@ -52,6 +52,28 @@ class SalesDashboardSummary {
 
   int get pendingTaskCount => rejectedContracts + reservationsToComplete;
 
+  SalesDashboardSummary copyWith({
+    int? totalReservations,
+    int? processingReservations,
+    int? activeContracts,
+    int? companies,
+    int? rejectedContracts,
+    int? reservationsToComplete,
+    List<SalesRecentActivity>? recentActivities,
+  }) {
+    return SalesDashboardSummary(
+      totalReservations: totalReservations ?? this.totalReservations,
+      processingReservations:
+          processingReservations ?? this.processingReservations,
+      activeContracts: activeContracts ?? this.activeContracts,
+      companies: companies ?? this.companies,
+      rejectedContracts: rejectedContracts ?? this.rejectedContracts,
+      reservationsToComplete:
+          reservationsToComplete ?? this.reservationsToComplete,
+      recentActivities: recentActivities ?? this.recentActivities,
+    );
+  }
+
   factory SalesDashboardSummary.sample({DateTime? now}) {
     final current = now ?? DateTime.now();
 

@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -6,8 +5,8 @@ import 'package:thuethietbi_app/core/theme/app_colors.dart';
 import 'package:thuethietbi_app/core/theme/app_spacing.dart';
 import 'package:thuethietbi_app/features/auth/data/models/user.dart';
 import 'package:thuethietbi_app/features/dashboard/data/models/sales_dashboard_summary.dart';
+import 'package:thuethietbi_app/features/dashboard/presentation/common/widgets/dashboard_header.dart';
 import 'package:thuethietbi_app/shared/formatters/date_formatter.dart';
-import 'package:thuethietbi_app/shared/widgets/notification/notification_button.dart';
 
 import 'sales_tab.dart';
 
@@ -39,7 +38,7 @@ class SalesDashboardScreen extends StatelessWidget {
         padding: const EdgeInsets.only(bottom: 96),
         child: Column(
           children: [
-            _Header(
+            DashboardHeader(
               user: user,
               roleLabel: roleLabel,
               bottomPadding: _overlap + AppSpacing.lg,
@@ -49,171 +48,19 @@ class SalesDashboardScreen extends StatelessWidget {
             Transform.translate(
               offset: const Offset(0, -_overlap),
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.lg,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
                 child: Column(
                   children: [
                     _OverviewCard(summary: summary, onNavigate: onNavigate),
                     const SizedBox(height: AppSpacing.lg),
                     _PendingTasksCard(summary: summary, onNavigate: onNavigate),
                     const SizedBox(height: AppSpacing.lg),
-                    _RecentActivitiesCard(
-                      activities: summary.recentActivities,
-                    ),
+                    _RecentActivitiesCard(activities: summary.recentActivities),
                   ],
                 ),
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  const _Header({
-    required this.user,
-    required this.roleLabel,
-    required this.bottomPadding,
-    required this.onOpenDrawer,
-    required this.onAvatarTap,
-  });
-
-  final User user;
-  final String roleLabel;
-  final double bottomPadding;
-  final VoidCallback onOpenDrawer;
-  final VoidCallback onAvatarTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.primary, AppColors.primaryDark],
-        ),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            AppSpacing.sm,
-            AppSpacing.sm,
-            AppSpacing.lg,
-            bottomPadding,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  IconButton(
-                    tooltip: 'Menu',
-                    onPressed: onOpenDrawer,
-                    icon: const Icon(Icons.menu_rounded),
-                    color: AppColors.onPrimary,
-                  ),
-                  Container(
-                    width: 32,
-                    height: 32,
-                    padding: const EdgeInsets.all(3),
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Image.asset('assets/images/equiprent_logo.png'),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  const Expanded(
-                    child: Text(
-                      'EquipRent',
-                      style: TextStyle(
-                        color: AppColors.onPrimary,
-                        fontSize: 19,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.3,
-                      ),
-                    ),
-                  ),
-                  const IconTheme(
-                    data: IconThemeData(color: AppColors.onPrimary),
-                    child: NotificationButton(),
-                  ),
-                  const SizedBox(width: AppSpacing.xs),
-                  _Avatar(avatarUrl: user.avatarUrl, onTap: onAvatarTap),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Xin chào, ${user.fullName}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.onPrimary,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      roleLabel,
-                      style: const TextStyle(
-                        color: AppColors.onPrimarySecondary,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Avatar extends StatelessWidget {
-  const _Avatar({required this.avatarUrl, required this.onTap});
-
-  final String? avatarUrl;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final url = avatarUrl?.trim();
-    final hasAvatar = url != null && url.isNotEmpty;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(2),
-        decoration: const BoxDecoration(
-          color: AppColors.onPrimary,
-          shape: BoxShape.circle,
-        ),
-        child: CircleAvatar(
-          radius: 17,
-          backgroundColor: AppColors.primaryLight,
-          backgroundImage: hasAvatar ? CachedNetworkImageProvider(url) : null,
-          child: hasAvatar
-              ? null
-              : const Icon(
-                  Icons.person_rounded,
-                  size: 20,
-                  color: AppColors.primary,
-                ),
         ),
       ),
     );
