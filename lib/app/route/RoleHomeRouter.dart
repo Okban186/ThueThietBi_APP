@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:thuethietbi_app/features/dashboard/presentation/admin/admin_main_layout.dart';
 import 'package:thuethietbi_app/features/dashboard/presentation/sales/sales_main_layout.dart';
 import 'package:thuethietbi_app/shared/widgets/shared_widgets_test_screen.dart';
 
@@ -17,9 +18,9 @@ class RoleHomeRouter extends StatelessWidget {
         .map((role) => role.code.trim().toUpperCase())
         .toSet();
 
-    // if (roles.contains('ADMIN')) {
-    //   return const AdminHomeScreen();
-    // }
+    if (roles.contains('ADMIN')) {
+      return const AdminMainLayout();
+    }
 
     // if (roles.contains('MANAGER')) {
     //   return const ManagerHomeScreen();
