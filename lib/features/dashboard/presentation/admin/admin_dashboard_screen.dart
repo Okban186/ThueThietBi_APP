@@ -59,7 +59,9 @@ class AdminDashboardScreen extends StatelessWidget {
               Transform.translate(
                 offset: const Offset(0, -_overlap),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.lg,
+                  ),
                   child: _buildContent(context, provider),
                 ),
               ),
@@ -84,11 +86,18 @@ class AdminDashboardScreen extends StatelessWidget {
       return _Card(
         child: Column(
           children: [
-            const Icon(Icons.cloud_off_rounded, color: AppColors.error, size: 32),
+            const Icon(
+              Icons.cloud_off_rounded,
+              color: AppColors.error,
+              size: 32,
+            ),
             const SizedBox(height: AppSpacing.sm),
             Text(provider.errorMessage!, textAlign: TextAlign.center),
             const SizedBox(height: AppSpacing.md),
-            FilledButton(onPressed: provider.load, child: const Text('Thử lại')),
+            FilledButton(
+              onPressed: provider.load,
+              child: const Text('Thử lại'),
+            ),
           ],
         ),
       );
@@ -132,7 +141,10 @@ class _OverviewCard extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             DateFormatter.weekdayDate(DateTime.now()),
-            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
           ),
           const SizedBox(height: AppSpacing.lg),
           GridView.count(
@@ -223,7 +235,10 @@ class _MetricCard extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 label,
-                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                ),
               ),
             ],
           ),
@@ -280,7 +295,9 @@ class _RoleDistributionCard extends StatelessWidget {
                 value: total == 0 ? 0 : provider.countByRole(role.code) / total,
                 minHeight: 6,
                 backgroundColor: AppColors.primaryLight,
-                color: role.code == 'COMPANY' ? AppColors.warning : AppColors.primary,
+                color: role.code == 'COMPANY'
+                    ? AppColors.warning
+                    : AppColors.primary,
               ),
             ),
             const SizedBox(height: AppSpacing.md),

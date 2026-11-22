@@ -48,18 +48,14 @@ class SalesDashboardScreen extends StatelessWidget {
             Transform.translate(
               offset: const Offset(0, -_overlap),
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.lg,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
                 child: Column(
                   children: [
                     _OverviewCard(summary: summary, onNavigate: onNavigate),
                     const SizedBox(height: AppSpacing.lg),
                     _PendingTasksCard(summary: summary, onNavigate: onNavigate),
                     const SizedBox(height: AppSpacing.lg),
-                    _RecentActivitiesCard(
-                      activities: summary.recentActivities,
-                    ),
+                    _RecentActivitiesCard(activities: summary.recentActivities),
                   ],
                 ),
               ),
@@ -70,8 +66,6 @@ class SalesDashboardScreen extends StatelessWidget {
     );
   }
 }
-
-
 
 class _OverviewCard extends StatelessWidget {
   const _OverviewCard({required this.summary, required this.onNavigate});

@@ -137,6 +137,14 @@ class _Avatar extends StatelessWidget {
     final url = avatarUrl?.trim();
     final hasAvatar = url != null && url.isNotEmpty;
 
+    // Biểu tượng mặc định khi không có ảnh, đang tải hoặc tải lỗi.
+    const fallback = ColoredBox(
+      color: AppColors.primaryLight,
+      child: Center(
+        child: Icon(Icons.person_rounded, size: 20, color: AppColors.primary),
+      ),
+    );
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -145,17 +153,18 @@ class _Avatar extends StatelessWidget {
           color: AppColors.onPrimary,
           shape: BoxShape.circle,
         ),
-        child: CircleAvatar(
-          radius: 17,
-          backgroundColor: AppColors.primaryLight,
-          backgroundImage: hasAvatar ? CachedNetworkImageProvider(url) : null,
-          child: hasAvatar
-              ? null
-              : const Icon(
-                  Icons.person_rounded,
-                  size: 20,
-                  color: AppColors.primary,
-                ),
+        child: ClipOval(
+          child: SizedBox.square(
+            dimension: 34,
+            child: hasAvatar
+                ? CachedNetworkImage(
+                    imageUrl: url,
+                    fit: BoxFit.cover,
+                    placeholder: (_, _) => fallback,
+                    errorWidget: (_, _, _) => fallback,
+                  )
+                : fallback,
+          ),
         ),
       ),
     );
