@@ -1,6 +1,11 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 import 'package:thuethietbi_app/core/network/api_error_message.dart';
@@ -143,46 +148,104 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
     await _run(() => provider.submit(contract.id), 'Đã gửi duyệt hợp đồng.');
   }
 
-  Future<void> _uploadSigned(RentalContract contract) async {
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Bản hợp đồng đã ký',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_camera_outlined),
-              title: const Text('Chụp ảnh'),
-              onTap: () => Navigator.pop(sheetContext, ImageSource.camera),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Chọn từ thư viện'),
-              onTap: () => Navigator.pop(sheetContext, ImageSource.gallery),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (source == null) return;
+  /// Giới hạn của Backend cho bản hợp đồng đã ký.
+  static const _maxSignedPdfBytes = 10 * 1024 * 1024;
 
-    final file = await ImagePicker().pickImage(
-      source: source,
-      maxWidth: 2000,
-      imageQuality: 85,
+  Future<void> _uploadSigned(RentalContract contract) async {
+    final file = await FilePicker.pickFile(
+      type: FileType.custom,
+      allowedExtensions: const ['pdf'],
     );
     if (file == null || !mounted) return;
 
-    final provider = context.read<RentalContractProvider>();
-    await _run(
-      () => provider.markSigned(contract.id, file.path),
-      'Hợp đồng đã chuyển sang "Đã ký".',
+    if (file.extension?.toLowerCase() != 'pdf') {
+      _showMessage('Vui lòng chọn file PDF.', isError: true);
+      return;
+    }
+
+    if (await file.xFile.length() > _maxSignedPdfBytes) {
+      if (mounted) _showMessage('File PDF tối đa 10 MB.', isError: true);
+      return;
+    }
+    if (!mounted) return;
+
+    final ok = await _confirm(
+      'Tải lên bản đã ký?',
+      'File: ${file.name}\n\n'
+          'Sau khi tải lên, hợp đồng ${contract.contractCode} chuyển sang '
+          '"Đã ký" và không sửa được nữa.',
+      'Tải lên',
     );
+    if (!ok || !mounted) return;
+
+    final provider = context.read<RentalContractProvider>();
+    await _run(() async {
+      // File chọn qua bộ chọn hệ thống có thể chưa có đường dẫn thật:
+      // khi đó chép vào thư mục tạm để upload.
+      var path = file.path;
+
+      if (path == null) {
+        final dir = await getTemporaryDirectory();
+        path = '${dir.path}${Platform.pathSeparator}${file.name}';
+        await file.xFile.saveTo(path);
+      }
+
+      await provider.markSigned(contract.id, path);
+    }, 'Hợp đồng đã chuyển sang "Đã ký".');
+  }
+
+  /// Xuất hợp đồng PDF từ mẫu để in và ký.
+  Future<void> _exportPdf(RentalContract contract) {
+    final api = context.read<RentalContractProvider>().api;
+
+    return _openPdf(
+      '${contract.contractCode}.pdf',
+      () => api.exportPdf(contract.id),
+    );
+  }
+
+  /// Mở bản hợp đồng đã ký (PDF lưu trên Cloudinary).
+  Future<void> _openSignedPdf(RentalContract contract, String url) {
+    final api = context.read<RentalContractProvider>().api;
+
+    return _openPdf(
+      '${contract.contractCode}_da_ky.pdf',
+      () => api.downloadFile(url),
+    );
+  }
+
+  /// Tải PDF về thư mục tạm rồi mở bằng ứng dụng đọc PDF của máy
+  /// (từ đó có thể in, lưu hoặc chia sẻ).
+  Future<void> _openPdf(
+    String fileName,
+    Future<Uint8List> Function() load,
+  ) async {
+    setState(() => _isSubmitting = true);
+
+    try {
+      final bytes = await load();
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}${Platform.pathSeparator}$fileName');
+      await file.writeAsBytes(bytes, flush: true);
+
+      final result = await OpenFilex.open(file.path, type: 'application/pdf');
+
+      if (result.type != ResultType.done && mounted) {
+        _showMessage(
+          'Không mở được file PDF. Hãy cài một ứng dụng đọc PDF (ví dụ Google Drive).',
+          isError: true,
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        _showMessage(
+          apiErrorMessage(error, fallback: 'Không tải được file PDF.'),
+          isError: true,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
   }
 
   Future<void> _cancel(RentalContract contract) async {
@@ -212,6 +275,15 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
           contract?.contractCode ?? 'Hợp đồng',
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),
+        actions: [
+          if (contract?.detail != null &&
+              contract!.status != RentalContractStatus.cancelled)
+            IconButton(
+              tooltip: 'Xuất hợp đồng PDF',
+              onPressed: _isSubmitting ? null : () => _exportPdf(contract),
+              icon: const Icon(Icons.picture_as_pdf_outlined),
+            ),
+        ],
         bottom: _isSubmitting
             ? const PreferredSize(
                 preferredSize: Size.fromHeight(3),
@@ -438,15 +510,34 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                       url: document.url,
                       cacheKey: document.storageFileId,
                     ),
-                  if (detail.signedContractUrl != null)
-                    _ImageTile(
-                      label: 'Hợp đồng đã ký',
-                      url: detail.signedContractUrl,
-                      cacheKey: 'signed-${c.id}',
-                    ),
                 ],
               ),
             ),
+            if (detail.signedContractUrl != null) ...[
+              const SizedBox(height: AppSpacing.lg),
+              _Section(
+                title: 'Hợp đồng đã ký',
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(
+                    Icons.picture_as_pdf_rounded,
+                    color: AppColors.error,
+                    size: 32,
+                  ),
+                  title: Text(
+                    '${c.contractCode}_da_ky.pdf',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: detail.signedAt == null
+                      ? null
+                      : Text(
+                          'Ký ngày ${DateFormatter.dateTime(detail.signedAt!)}',
+                        ),
+                  trailing: const Icon(Icons.open_in_new_rounded),
+                  onTap: () => _openSignedPdf(c, detail.signedContractUrl!),
+                ),
+              ),
+            ],
             const SizedBox(height: AppSpacing.lg),
             _Section(
               title: 'Lịch sử',
@@ -510,7 +601,15 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
         ),
       ]);
     } else if (contract.status == RentalContractStatus.pendingSignature) {
-      buttons.add(
+      buttons.addAll([
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: _isSubmitting ? null : () => _exportPdf(contract),
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            label: const Text('Xuất PDF'),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
         Expanded(
           child: FilledButton.icon(
             onPressed: _isSubmitting ? null : () => _uploadSigned(contract),
@@ -518,7 +617,7 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
             label: const Text('Tải bản đã ký'),
           ),
         ),
-      );
+      ]);
     } else if (contract.status == RentalContractStatus.pendingApproval) {
       buttons.add(
         const Expanded(

@@ -73,7 +73,7 @@ class SalesDashboardSummary {
   /// Hợp đồng đang hiệu lực: từ SIGNED đến DELIVERED.
   final int activeContracts;
 
-  /// Số công ty do mình tạo (companies.created_by).
+  /// Số công ty khách hàng đang hoạt động (dữ liệu dùng chung, không theo người tạo).
   final int companies;
 
   /// Hợp đồng bị Manager từ chối, cần chỉnh sửa và gửi lại.

@@ -173,62 +173,54 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
           padding: const EdgeInsets.all(AppSpacing.lg),
           children: [
             _HeaderCard(company: company),
-            if (!company.canEdit) ...[
-              const SizedBox(height: AppSpacing.md),
-              _ReadOnlyBanner(ownerName: company.createdByName),
-            ],
             const SizedBox(height: AppSpacing.lg),
             _InfoCard(company: company),
             const SizedBox(height: AppSpacing.lg),
             _AccountsCard(
               detail: detail,
-              onCreate: company.canEdit && company.isActive
+              onCreate: company.isActive
                   ? () =>
                         CompanyAccountFormScreen.open(context, company: company)
                   : null,
             ),
-            if (company.canEdit) ...[
-              const SizedBox(height: AppSpacing.lg),
-              _Section(
-                child: Column(
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.edit_outlined),
-                      iconColor: AppColors.primary,
-                      title: const Text(
-                        'Sửa thông tin công ty',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: () =>
-                          CompanyFormScreen.open(context, company: company),
+            const SizedBox(height: AppSpacing.lg),
+            _Section(
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.edit_outlined),
+                    iconColor: AppColors.primary,
+                    title: const Text(
+                      'Sửa thông tin công ty',
+                      style: TextStyle(fontWeight: FontWeight.w600),
                     ),
-                    ListTile(
-                      leading: Icon(
-                        company.isActive
-                            ? Icons.pause_circle_outline_rounded
-                            : Icons.play_circle_outline_rounded,
-                      ),
-                      iconColor: company.isActive
-                          ? AppColors.error
-                          : AppColors.success,
-                      title: Text(
-                        company.isActive
-                            ? 'Ngừng hoạt động'
-                            : 'Mở lại hoạt động',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: company.isActive
-                              ? AppColors.error
-                              : AppColors.success,
-                        ),
-                      ),
-                      onTap: () => _toggleStatus(company),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () =>
+                        CompanyFormScreen.open(context, company: company),
+                  ),
+                  ListTile(
+                    leading: Icon(
+                      company.isActive
+                          ? Icons.pause_circle_outline_rounded
+                          : Icons.play_circle_outline_rounded,
                     ),
-                  ],
-                ),
+                    iconColor: company.isActive
+                        ? AppColors.error
+                        : AppColors.success,
+                    title: Text(
+                      company.isActive ? 'Ngừng hoạt động' : 'Mở lại hoạt động',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: company.isActive
+                            ? AppColors.error
+                            : AppColors.success,
+                      ),
+                    ),
+                    onTap: () => _toggleStatus(company),
+                  ),
+                ],
               ),
-            ],
+            ),
           ],
         ),
       ),
@@ -281,39 +273,6 @@ class _HeaderCard extends StatelessWidget {
                 const SizedBox(height: AppSpacing.sm),
                 CompanyStatusBadge(status: company.companyStatus),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ReadOnlyBanner extends StatelessWidget {
-  const _ReadOnlyBanner({required this.ownerName});
-
-  final String? ownerName;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.infoLight,
-        borderRadius: BorderRadius.circular(AppSpacing.borderRadius),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.info_outline_rounded,
-            color: AppColors.info,
-            size: 20,
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              'Khách hàng do ${ownerName ?? 'nhân viên khác'} phụ trách. Bạn chỉ có quyền xem.',
-              style: const TextStyle(color: AppColors.info, fontSize: 13),
             ),
           ),
         ],
@@ -434,7 +393,7 @@ class _AccountsCard extends StatelessWidget {
               icon: const Icon(Icons.person_add_alt_1_rounded),
               label: const Text('Tạo tài khoản đăng nhập'),
             ),
-          ] else if (detail.company.canEdit && !detail.company.isActive) ...[
+          ] else if (!detail.company.isActive) ...[
             const SizedBox(height: AppSpacing.sm),
             const Text(
               'Mở lại hoạt động để tạo thêm tài khoản.',

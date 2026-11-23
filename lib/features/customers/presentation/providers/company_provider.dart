@@ -15,7 +15,7 @@ class CompanyProvider extends ChangeNotifier {
 
   final CompanyApi _api;
 
-  /// Người đang đăng nhập, dùng cho bộ lọc "Của tôi".
+  /// Người đang đăng nhập, để hiện "Bạn tạo" (chỉ ghi nhận người tạo, không giới hạn quyền).
   final String currentUserId;
 
   List<Company> _companies = [];
@@ -26,26 +26,19 @@ class CompanyProvider extends ChangeNotifier {
 
   String _keyword = '';
   CompanyStatus? _statusFilter;
-  bool _onlyMine = false;
 
   bool get isLoading => _isLoading;
   bool get hasLoaded => _hasLoaded;
   String? get errorMessage => _errorMessage;
   String get keyword => _keyword;
   CompanyStatus? get statusFilter => _statusFilter;
-  bool get onlyMine => _onlyMine;
 
   List<Company> get companies => List.unmodifiable(_companies);
-
-  /// Số công ty do người đang đăng nhập tạo (thẻ "Công ty" ở Tổng quan).
-  int get myCompanyCount =>
-      _companies.where((c) => c.createdById == currentUserId).length;
 
   List<Company> get filteredCompanies {
     final keyword = _keyword.trim().toLowerCase();
 
     return _companies.where((company) {
-      if (_onlyMine && company.createdById != currentUserId) return false;
       if (_statusFilter != null && company.companyStatus != _statusFilter) {
         return false;
       }
@@ -101,11 +94,6 @@ class CompanyProvider extends ChangeNotifier {
 
   void setStatusFilter(CompanyStatus? status) {
     _statusFilter = status;
-    notifyListeners();
-  }
-
-  void setOnlyMine(bool value) {
-    _onlyMine = value;
     notifyListeners();
   }
 

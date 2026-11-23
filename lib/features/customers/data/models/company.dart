@@ -24,7 +24,6 @@ class Company {
     this.updatedAt,
     this.createdById,
     this.createdByName,
-    this.canEdit = false,
     this.accountCount = 0,
   });
 
@@ -32,12 +31,10 @@ class Company {
   final String? address, status;
   final DateTime? createdAt, updatedAt;
 
-  /// Nhân viên kinh doanh tạo công ty (null với dữ liệu cũ).
+  /// Nhân viên kinh doanh tạo công ty (null với dữ liệu cũ). Chỉ để biết ai
+  /// chịu trách nhiệm nhập liệu; mọi Sales đều sửa được công ty.
   final String? createdById;
   final String? createdByName;
-
-  /// Người đang đăng nhập được sửa công ty (người tạo, hoặc công ty chưa có người tạo).
-  final bool canEdit;
 
   /// Số tài khoản đăng nhập (role COMPANY) của công ty.
   final int accountCount;
@@ -56,7 +53,6 @@ class Company {
     updatedAt: _date(json['updatedAt']),
     createdById: json['createdById'] as String?,
     createdByName: json['createdByName'] as String?,
-    canEdit: json['canEdit'] as bool? ?? false,
     accountCount: json['accountCount'] as int? ?? 0,
   );
 

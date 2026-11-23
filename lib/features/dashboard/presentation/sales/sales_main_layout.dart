@@ -77,12 +77,9 @@ class _SalesMainLayoutState extends State<SalesMainLayout> {
     _reservationProvider = ReservationProvider(
       ReservationApi(apiClient),
       _equipmentModelApi,
-      currentUserId: currentUserId,
     )..load();
-    _contractProvider = RentalContractProvider(
-      RentalContractApi(apiClient),
-      currentUserId: currentUserId,
-    )..load();
+    _contractProvider = RentalContractProvider(RentalContractApi(apiClient))
+      ..load();
 
     _loadSummary();
   }
