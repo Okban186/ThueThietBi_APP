@@ -153,24 +153,27 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
 
     final roleCode = await showModalBottomSheet<String>(
       context: context,
+      isScrollControlled: true,
       showDragHandle: true,
       builder: (sheetContext) => SafeArea(
-        child: RadioGroup<String>(
-          groupValue: user.role?.code,
-          onChanged: (value) => Navigator.pop(sheetContext, value),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const _SheetTitle('Chọn vai trò'),
-              for (final role in provider.assignableRoles)
-                RadioListTile<String>(
-                  value: role.code,
-                  title: Text(role.name),
-                  subtitle: role.description == null
-                      ? null
-                      : Text(role.description!),
-                ),
-            ],
+        child: SingleChildScrollView(
+          child: RadioGroup<String>(
+            groupValue: user.role?.code,
+            onChanged: (value) => Navigator.pop(sheetContext, value),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const _SheetTitle('Chọn vai trò'),
+                for (final role in provider.assignableRoles)
+                  RadioListTile<String>(
+                    value: role.code,
+                    title: Text(role.name),
+                    subtitle: role.description == null
+                        ? null
+                        : Text(role.description!),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
