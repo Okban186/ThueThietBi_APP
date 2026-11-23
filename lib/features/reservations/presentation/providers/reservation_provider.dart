@@ -9,20 +9,13 @@ import '../../data/models/reservation.dart';
 /// Trạng thái tab "Đặt thuê" của nhân viên kinh doanh.
 ///
 /// Tải danh sách một lần rồi lọc tại client; chi tiết phiếu (kèm thiết bị) tải khi mở.
-/// Cũng cung cấp số liệu "Đặt thuê" cho trang Tổng quan.
 class ReservationProvider extends ChangeNotifier {
-  ReservationProvider(
-    this._api,
-    this.equipmentModelApi, {
-    required this.currentUserId,
-  });
+  ReservationProvider(this._api, this.equipmentModelApi);
 
   final ReservationApi _api;
 
   /// Dùng cho màn chọn model thiết bị và kiểm tra số lượng khả dụng.
   final EquipmentModelApi equipmentModelApi;
-
-  final String currentUserId;
 
   List<Reservation> _reservations = [];
   final Map<String, Reservation> _details = {};
@@ -32,35 +25,19 @@ class ReservationProvider extends ChangeNotifier {
 
   String _keyword = '';
   ReservationStatus? _statusFilter;
-  bool _onlyMine = false;
 
   bool get isLoading => _isLoading;
   bool get hasLoaded => _hasLoaded;
   String? get errorMessage => _errorMessage;
   String get keyword => _keyword;
   ReservationStatus? get statusFilter => _statusFilter;
-  bool get onlyMine => _onlyMine;
 
   List<Reservation> get reservations => List.unmodifiable(_reservations);
-
-  Iterable<Reservation> get _mine =>
-      _reservations.where((r) => r.createdBy == currentUserId);
-
-  /// Tổng số phiếu do mình lập.
-  int get myTotalCount => _mine.length;
-
-  /// Phiếu đang xử lý: PENDING hoặc APPROVED (chưa tạo hợp đồng).
-  int get myOpenCount => _mine.where((r) => r.isOpen).length;
-
-  /// Phiếu PENDING chưa có thiết bị, cần hoàn thiện.
-  int get myToCompleteCount =>
-      _mine.where((r) => r.isPending && r.itemCount == 0).length;
 
   List<Reservation> get filteredReservations {
     final keyword = _keyword.trim().toLowerCase();
 
     return _reservations.where((r) {
-      if (_onlyMine && r.createdBy != currentUserId) return false;
       if (_statusFilter != null && r.status != _statusFilter) return false;
       if (keyword.isEmpty) return true;
 
@@ -102,11 +79,6 @@ class ReservationProvider extends ChangeNotifier {
 
   void setStatusFilter(ReservationStatus? status) {
     _statusFilter = status;
-    notifyListeners();
-  }
-
-  void setOnlyMine(bool value) {
-    _onlyMine = value;
     notifyListeners();
   }
 

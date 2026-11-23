@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+
+import 'package:dio/dio.dart';
 import 'package:thuethietbi_app/core/network/api_client.dart';
 import 'package:thuethietbi_app/features/storage/data/datasources/cloudinary_uploader.dart';
 import 'package:thuethietbi_app/features/storage/data/models/upload_ticket.dart';
@@ -43,15 +46,57 @@ class RentalContractApi {
     return RentalContractSuggestion.fromJson(response.data!);
   }
 
-  /// Upload ảnh (giấy tờ / bản hợp đồng đã ký) và trả `storageFileId` theo đúng thứ tự [filePaths].
-  ///
-  /// Xin vé → upload thẳng lên Cloudinary → xác nhận. Ném lỗi nếu có ảnh không xác nhận được.
-  Future<List<String>> uploadImages(List<String> filePaths) async {
-    if (filePaths.isEmpty) return [];
+  /// Xuất hợp đồng PDF điền sẵn từ mẫu (bản nháp nếu chưa được duyệt).
+  Future<Uint8List> exportPdf(String id) async {
+    final response = await _apiClient.get<List<int>>(
+      '/api/rental-contracts/$id/pdf',
+      options: Options(responseType: ResponseType.bytes),
+    );
 
+    return Uint8List.fromList(response.data!);
+  }
+
+  /// Tải file từ URL có chữ ký của Cloudinary (bản hợp đồng đã ký).
+  /// Dùng Dio riêng vì URL không thuộc Backend, không gửi token.
+  Future<Uint8List> downloadFile(String url) async {
+    final response = await Dio().get<List<int>>(
+      url,
+      options: Options(responseType: ResponseType.bytes),
+    );
+
+    return Uint8List.fromList(response.data!);
+  }
+
+  /// Upload ảnh giấy tờ (jpg/png/webp) và trả `storageFileId` theo đúng thứ tự [filePaths].
+  Future<List<String>> uploadImages(List<String> filePaths) {
+    if (filePaths.isEmpty) return Future.value(const []);
+
+    return _uploadFiles('/api/rental-contracts/upload-ticket', {
+      'fileCount': filePaths.length,
+    }, filePaths);
+  }
+
+  /// Upload bản hợp đồng đã ký (1 file PDF) và trả `storageFileId`.
+  Future<String> uploadSignedPdf(String filePath) async {
+    final ids = await _uploadFiles(
+      '/api/rental-contracts/signed-upload-ticket',
+      null,
+      [filePath],
+    );
+
+    return ids.single;
+  }
+
+  /// Xin vé → upload thẳng lên Cloudinary → xác nhận.
+  /// Ném lỗi nếu có file không xác nhận được.
+  Future<List<String>> _uploadFiles(
+    String ticketPath,
+    Map<String, dynamic>? ticketBody,
+    List<String> filePaths,
+  ) async {
     final ticketResponse = await _apiClient.post<Map<String, dynamic>>(
-      '/api/rental-contracts/upload-ticket',
-      data: {'fileCount': filePaths.length},
+      ticketPath,
+      data: ticketBody,
     );
     final ticket = UploadTicket.fromJson(ticketResponse.data!);
 
@@ -77,7 +122,7 @@ class RentalContractApi {
 
     if (failed.isNotEmpty) {
       throw UploadFailedException(
-        failed.first.message ?? 'Không xác nhận được ảnh đã tải lên.',
+        failed.first.message ?? 'Không xác nhận được file đã tải lên.',
       );
     }
 

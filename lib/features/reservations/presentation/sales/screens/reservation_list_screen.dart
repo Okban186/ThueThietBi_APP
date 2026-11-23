@@ -83,17 +83,8 @@ class _ReservationListScreenState extends State<ReservationListScreen> {
                   children: [
                     AppFilterChip(
                       label: 'Tất cả',
-                      selected:
-                          !provider.onlyMine && provider.statusFilter == null,
-                      onTap: () => provider
-                        ..setOnlyMine(false)
-                        ..setStatusFilter(null),
-                    ),
-                    AppFilterChip(
-                      label: 'Của tôi',
-                      icon: Icons.person_outline_rounded,
-                      selected: provider.onlyMine,
-                      onTap: () => provider.setOnlyMine(!provider.onlyMine),
+                      selected: provider.statusFilter == null,
+                      onTap: () => provider.setStatusFilter(null),
                     ),
                     for (final status in ReservationStatus.filterable)
                       AppFilterChip(

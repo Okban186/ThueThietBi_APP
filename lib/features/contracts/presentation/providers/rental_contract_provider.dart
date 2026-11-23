@@ -9,11 +9,10 @@ import '../../data/models/rental_contract_suggestion.dart';
 /// Trạng thái tab "Hợp đồng" của nhân viên kinh doanh.
 /// Tải danh sách một lần rồi lọc tại client; chi tiết tải khi mở.
 class RentalContractProvider extends ChangeNotifier {
-  RentalContractProvider(this.api, {required this.currentUserId});
+  RentalContractProvider(this.api);
 
   /// Dùng trực tiếp cho upload ảnh và lấy gợi ý ở màn hình form.
   final RentalContractApi api;
-  final String currentUserId;
 
   List<RentalContract> _contracts = [];
   final Map<String, RentalContract> _details = {};
@@ -23,14 +22,12 @@ class RentalContractProvider extends ChangeNotifier {
 
   String _keyword = '';
   RentalContractStatus? _statusFilter;
-  bool _onlyMine = false;
 
   bool get isLoading => _isLoading;
   bool get hasLoaded => _hasLoaded;
   String? get errorMessage => _errorMessage;
   String get keyword => _keyword;
   RentalContractStatus? get statusFilter => _statusFilter;
-  bool get onlyMine => _onlyMine;
 
   List<RentalContract> get contracts => List.unmodifiable(_contracts);
 
@@ -38,7 +35,6 @@ class RentalContractProvider extends ChangeNotifier {
     final keyword = _keyword.trim().toLowerCase();
 
     return _contracts.where((c) {
-      if (_onlyMine && c.createdBy != currentUserId) return false;
       if (_statusFilter != null && c.status != _statusFilter) return false;
       if (keyword.isEmpty) return true;
 
@@ -82,11 +78,6 @@ class RentalContractProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setOnlyMine(bool value) {
-    _onlyMine = value;
-    notifyListeners();
-  }
-
   // Các thao tác ném lỗi gốc để màn hình hiển thị.
 
   Future<RentalContractSuggestion> getSuggestion(String reservationId) =>
@@ -109,10 +100,10 @@ class RentalContractProvider extends ChangeNotifier {
   Future<RentalContract> cancel(String id, {String? reason}) async =>
       _store(await api.cancel(id, reason: reason));
 
-  /// Upload ảnh bản hợp đồng đã ký rồi chuyển hợp đồng sang "Đã ký".
-  Future<RentalContract> markSigned(String id, String imagePath) async {
-    final fileIds = await api.uploadImages([imagePath]);
-    return _store(await api.markSigned(id, fileIds.single));
+  /// Upload file PDF bản hợp đồng đã ký rồi chuyển hợp đồng sang "Đã ký".
+  Future<RentalContract> markSigned(String id, String pdfPath) async {
+    final fileId = await api.uploadSignedPdf(pdfPath);
+    return _store(await api.markSigned(id, fileId));
   }
 
   RentalContract _store(RentalContract contract) {
