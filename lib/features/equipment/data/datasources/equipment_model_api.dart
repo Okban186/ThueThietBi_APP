@@ -25,6 +25,16 @@ class EquipmentModelApi {
         .toList();
   }
 
+  /// Chi tiết một model, kèm ảnh (URL có chữ ký, hết hạn sau một thời gian
+  /// nên màn chi tiết luôn tải lại).
+  Future<EquipmentModel> getModel(String id) async {
+    final response = await _apiClient.get<Map<String, dynamic>>(
+      '/api/equipment-models/$id',
+    );
+
+    return EquipmentModel.fromJson(response.data!);
+  }
+
   /// Số lượng khả dụng của nhiều model trong cùng khoảng ngày.
   /// [excludeReservationId]: phiếu đang sửa, bỏ qua số lượng của chính phiếu đó.
   Future<Map<String, EquipmentAvailability>> checkAvailability({

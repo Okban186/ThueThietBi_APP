@@ -11,9 +11,11 @@ import 'package:thuethietbi_app/shared/formatters/currency_formatter.dart';
 
 import '../../../data/datasources/equipment_model_api.dart';
 import '../../../data/models/equipment_model.dart';
+import '../widgets/equipment_image_gallery.dart';
+import 'equipment_detail_screen.dart';
 
 /// Danh mục thiết bị (chỉ xem) cho nhân viên kinh doanh:
-/// giá thuê và số máy còn trống hôm nay của từng model.
+/// giá thuê và số máy còn trống hôm nay của từng model; chạm để xem chi tiết.
 class EquipmentCatalogScreen extends StatefulWidget {
   const EquipmentCatalogScreen({super.key, required this.api});
 
@@ -146,12 +148,8 @@ class _EquipmentCatalogScreenState extends State<EquipmentCatalogScreen> {
       separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
       itemBuilder: (context, index) => _ModelCard(
         model: _models[index],
-        onTap: () => showModalBottomSheet<void>(
-          context: context,
-          isScrollControlled: true,
-          showDragHandle: true,
-          builder: (_) => _ModelDetailSheet(model: _models[index]),
-        ),
+        onTap: () =>
+            EquipmentDetailScreen.open(context, widget.api, _models[index]),
       ),
     );
   }
@@ -208,19 +206,7 @@ class _ModelCard extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: AppColors.primaryLight,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.devices_other_rounded,
-                  color: AppColors.primary,
-                  size: 30,
-                ),
-              ),
+              _Thumbnail(image: model.primaryImage),
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Column(
@@ -274,93 +260,34 @@ class _ModelCard extends StatelessWidget {
   }
 }
 
-class _ModelDetailSheet extends StatelessWidget {
-  const _ModelDetailSheet({required this.model});
+class _Thumbnail extends StatelessWidget {
+  const _Thumbnail({required this.image});
 
-  final EquipmentModel model;
+  final EquipmentModelMedia? image;
 
   @override
   Widget build(BuildContext context) {
-    final specs = model.specifications ?? const {};
+    const placeholder = Icon(
+      Icons.devices_other_rounded,
+      color: AppColors.primary,
+      size: 30,
+    );
 
-    return SafeArea(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.8,
-        ),
-        child: ListView(
-          shrinkWrap: true,
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.xl,
-            0,
-            AppSpacing.xl,
-            AppSpacing.xl,
-          ),
-          children: [
-            Text(
-              model.name,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-            ),
-            Text(
-              [
-                model.code,
-                if (model.manufacturer != null) model.manufacturer!,
-                if (model.modelNumber != null) model.modelNumber!,
-              ].join(' · '),
-              style: const TextStyle(color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            _AvailabilityChip(model: model),
-            const SizedBox(height: AppSpacing.lg),
-            _row(
-              'Giá thuê theo ngày',
-              CurrencyFormatter.vnd(model.rentalPriceDaily),
-            ),
-            _row(
-              'Giá thuê theo tháng',
-              CurrencyFormatter.vnd(model.rentalPriceMonthly),
-            ),
-            _row(
-              'Thời gian lắp đặt',
-              '${model.estimatedInstallationMinutes} phút',
-            ),
-            if (model.description != null) ...[
-              const SizedBox(height: AppSpacing.md),
-              Text(model.description!, style: const TextStyle(height: 1.4)),
-            ],
-            if (specs.isNotEmpty) ...[
-              const SizedBox(height: AppSpacing.lg),
-              const Text(
-                'Thông số kỹ thuật',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              for (final entry in specs.entries)
-                _row(entry.key, '${entry.value}'),
-            ],
-            const SizedBox(height: AppSpacing.md),
-            const Text(
-              'Số khả dụng tính cho hôm nay. Khi lập phiếu, hệ thống kiểm tra lại theo đúng khoảng ngày thuê.',
-              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-            ),
-          ],
-        ),
+    return Container(
+      width: 64,
+      height: 64,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: AppColors.primaryLight,
+        borderRadius: BorderRadius.circular(12),
       ),
+      child: image == null
+          ? placeholder
+          : EquipmentNetworkImage(
+              media: image!,
+              fit: BoxFit.cover,
+              placeholder: placeholder,
+            ),
     );
   }
-
-  Widget _row(String label, String value) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
-    child: Row(
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style: const TextStyle(color: AppColors.textSecondary),
-          ),
-        ),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
-      ],
-    ),
-  );
 }

@@ -1,3 +1,5 @@
+import 'rental_pricing.dart';
+
 /// Đơn vị tính tiền thuê.
 enum BillingUnit {
   daily('DAILY', 'Theo ngày', 'ngày'),
@@ -14,8 +16,12 @@ enum BillingUnit {
   static BillingUnit fromCode(String code) =>
       code.toUpperCase() == 'MONTHLY' ? monthly : daily;
 
+  /// Đơn vị tính do hệ thống chọn theo số ngày thuê.
+  static BillingUnit forDays(int rentalDays) =>
+      RentalPricing.isLongTerm(rentalDays) ? monthly : daily;
+
   /// Số đơn vị tính tiền: ngày, hoặc tháng = làm tròn lên (30 ngày/tháng).
-  /// Khớp công thức của Backend (ContractService.BillableUnits).
+  /// Khớp công thức của Backend (RentalPricing.BillableUnits).
   int billableUnits(int rentalDays) =>
       this == monthly ? (rentalDays / 30).ceil() : rentalDays;
 }
@@ -59,4 +65,20 @@ class RentalContractItem {
         amount: (json['amount'] as num?)?.toDouble() ?? 0,
         note: json['note'] as String?,
       );
+
+  /// Đổi đơn vị tính/đơn giá; số đơn vị và thành tiền do nơi dùng tự tính lại.
+  RentalContractItem copyWith({
+    BillingUnit? billingUnit,
+    double? agreedUnitPrice,
+  }) => RentalContractItem(
+    id: id,
+    equipmentModelId: equipmentModelId,
+    equipmentModelCode: equipmentModelCode,
+    equipmentModelName: equipmentModelName,
+    unit: unit,
+    quantity: quantity,
+    billingUnit: billingUnit ?? this.billingUnit,
+    agreedUnitPrice: agreedUnitPrice ?? this.agreedUnitPrice,
+    note: note,
+  );
 }

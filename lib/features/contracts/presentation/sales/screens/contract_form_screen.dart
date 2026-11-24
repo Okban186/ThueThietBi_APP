@@ -19,6 +19,7 @@ import '../../../data/models/contract_representative.dart';
 import '../../../data/models/rental_contract.dart';
 import '../../../data/models/rental_contract_item.dart';
 import '../../../data/models/rental_contract_service_model.dart';
+import '../../../data/models/rental_pricing.dart';
 import '../../providers/rental_contract_provider.dart';
 import 'contract_detail_screen.dart';
 
@@ -83,7 +84,6 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
   final _repPhoneController = TextEditingController();
   final _repEmailController = TextEditingController();
   final _depositController = TextEditingController();
-  final List<TextEditingController> _priceControllers = [];
 
   bool _isLoading = true;
   bool _isSubmitting = false;
@@ -99,7 +99,6 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
   int _rentalDays = 0;
   double _depositRate = 0.2;
 
-  RentalType _rentalType = RentalType.shortTerm;
   RepresentativeType _repType = RepresentativeType.legal;
   List<RentalContractItem> _items = [];
   final List<RentalContractServiceModel> _services = [];
@@ -134,7 +133,6 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
       _repPhoneController,
       _repEmailController,
       _depositController,
-      ..._priceControllers,
     ]) {
       c.dispose();
     }
@@ -151,7 +149,10 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
 
     try {
       if (widget.isEditing) {
-        _fillFromContract(await provider.loadDetail(widget.contract!.id));
+        final contract = await provider.loadDetail(widget.contract!.id);
+        _fillFromContract(contract);
+        // Backend tính lại giá theo giá niêm yết khi lưu: hiển thị đúng số đó.
+        _items = await provider.repriceItems(_items, _rentalDays);
       } else {
         final s = await provider.getSuggestion(widget.reservationId!);
         _title = 'Tạo hợp đồng';
@@ -160,8 +161,7 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
         _endDate = s.endDate;
         _rentalDays = s.rentalDays;
         _depositRate = s.depositRate;
-        _rentalType = s.rentalType;
-        _setItems(s.items);
+        _items = s.items;
         _depositController.text = s.depositRequiredAmount.round().toString();
       }
     } catch (error) {
@@ -183,8 +183,7 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
     _startDate = contract.startDate;
     _endDate = contract.endDate;
     _rentalDays = contract.rentalDays;
-    _rentalType = contract.rentalType;
-    _setItems(detail.items);
+    _items = detail.items;
     _services
       ..clear()
       ..addAll(detail.services);
@@ -212,36 +211,19 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
     }
   }
 
-  void _setItems(List<RentalContractItem> items) {
-    _items = items;
-    for (final c in _priceControllers) {
-      c.dispose();
-    }
-    _priceControllers
-      ..clear()
-      ..addAll(
-        items.map(
-          (i) =>
-              TextEditingController(text: i.agreedUnitPrice.round().toString()),
-        ),
-      );
-  }
-
   // ------------------------------------------------------------ tiền
+  // Loại thuê, đơn vị tính và đơn giá theo số ngày thuê và giá niêm yết của
+  // model (RentalPricing), Sales không sửa được.
 
-  double _priceOf(int index) =>
-      double.tryParse(_priceControllers[index].text) ?? 0;
+  RentalType get _rentalType => RentalType.forDays(_rentalDays);
 
-  double get _itemsTotal {
-    var total = 0.0;
-    for (var i = 0; i < _items.length; i++) {
-      total +=
-          _items[i].quantity *
-          _priceOf(i) *
-          _items[i].billingUnit.billableUnits(_rentalDays);
-    }
-    return total;
-  }
+  double _amountOf(RentalContractItem item) =>
+      item.quantity *
+      item.agreedUnitPrice *
+      item.billingUnit.billableUnits(_rentalDays);
+
+  double get _itemsTotal =>
+      _items.fold(0.0, (sum, item) => sum + _amountOf(item));
 
   double get _servicesTotal => _services
       .where((s) => s.isCharged)
@@ -255,21 +237,6 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
           .toString();
     }
     setState(() {});
-  }
-
-  void _changeBillingUnit(int index, BillingUnit unit) {
-    final item = _items[index];
-    _items[index] = RentalContractItem(
-      equipmentModelId: item.equipmentModelId,
-      equipmentModelCode: item.equipmentModelCode,
-      equipmentModelName: item.equipmentModelName,
-      unit: item.unit,
-      quantity: item.quantity,
-      billingUnit: unit,
-      agreedUnitPrice: item.agreedUnitPrice,
-      note: item.note,
-    );
-    _recalculate();
   }
 
   // ------------------------------------------------------------ dịch vụ
@@ -397,17 +364,7 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
           c.text.trim().isEmpty ? null : c.text.trim();
 
       final input = RentalContractInput(
-        rentalType: _rentalType,
-        items: [
-          for (var i = 0; i < _items.length; i++)
-            RentalContractItem(
-              equipmentModelId: _items[i].equipmentModelId,
-              quantity: _items[i].quantity,
-              billingUnit: _items[i].billingUnit,
-              agreedUnitPrice: _priceOf(i),
-              note: _items[i].note,
-            ),
-        ],
+        items: _items,
         services: _services,
         representative: ContractRepresentative(
           fullName: _repNameController.text.trim(),
@@ -576,14 +533,12 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
                       '${DateFormatter.dateRange(_startDate, _endDate)} ($_rentalDays ngày)',
                 ),
                 const SizedBox(height: AppSpacing.md),
-                SegmentedButton<RentalType>(
-                  segments: [
-                    for (final type in RentalType.values)
-                      ButtonSegment(value: type, label: Text(type.label)),
-                  ],
-                  selected: {_rentalType},
-                  onSelectionChanged: (value) =>
-                      setState(() => _rentalType = value.first),
+                _ReadOnlyRow(
+                  icon: Icons.sell_outlined,
+                  label: 'Hình thức thuê',
+                  value: _rentalType == RentalType.longTerm
+                      ? '${_rentalType.label} (trên ${RentalPricing.shortTermMaxDays} ngày, tính theo giá tháng)'
+                      : '${_rentalType.label} (đến ${RentalPricing.shortTermMaxDays} ngày, tính theo giá ngày)',
                 ),
                 const SizedBox(height: AppSpacing.md),
                 TextFormField(
@@ -808,7 +763,6 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
   Widget _buildItemRow(int index) {
     final item = _items[index];
     final units = item.billingUnit.billableUnits(_rentalDays);
-    final amount = item.quantity * _priceOf(index) * units;
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
@@ -835,43 +789,8 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
-          Row(
-            children: [
-              Expanded(
-                child: DropdownButtonFormField<BillingUnit>(
-                  initialValue: item.billingUnit,
-                  isDense: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Đơn vị tính',
-                    isDense: true,
-                  ),
-                  items: [
-                    for (final u in BillingUnit.values)
-                      DropdownMenuItem(value: u, child: Text(u.label)),
-                  ],
-                  onChanged: (u) =>
-                      _changeBillingUnit(index, u ?? item.billingUnit),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: TextFormField(
-                  controller: _priceControllers[index],
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  decoration: InputDecoration(
-                    labelText: 'Đơn giá/${item.billingUnit.unitLabel}',
-                    isDense: true,
-                  ),
-                  onChanged: (_) => _recalculate(),
-                  validator: (v) => (v ?? '').isEmpty ? 'Nhập đơn giá' : null,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
           Text(
-            '${item.quantity} × ${CurrencyFormatter.vnd(_priceOf(index))} × $units ${item.billingUnit.unitLabel} = ${CurrencyFormatter.vnd(amount)}',
+            '${item.quantity} × ${CurrencyFormatter.vnd(item.agreedUnitPrice)}/${item.billingUnit.unitLabel} × $units ${item.billingUnit.unitLabel} = ${CurrencyFormatter.vnd(_amountOf(item))}',
             style: const TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.w600,

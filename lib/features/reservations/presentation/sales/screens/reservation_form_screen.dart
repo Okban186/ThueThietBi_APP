@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:thuethietbi_app/core/network/api_error_message.dart';
 import 'package:thuethietbi_app/core/theme/app_colors.dart';
 import 'package:thuethietbi_app/core/theme/app_spacing.dart';
+import 'package:thuethietbi_app/features/contracts/data/models/rental_pricing.dart';
 import 'package:thuethietbi_app/features/contracts/presentation/providers/rental_contract_provider.dart';
 import 'package:thuethietbi_app/features/customers/data/models/company.dart';
 import 'package:thuethietbi_app/features/customers/presentation/providers/company_provider.dart';
@@ -123,6 +124,25 @@ class _ReservationFormScreenState extends State<ReservationFormScreen> {
     if (picked != null) setState(() => _dates = picked);
   }
 
+  int? get _rentalDays => _dates == null
+      ? null
+      : RentalPricing.rentalDays(_dates!.start, _dates!.end);
+
+  bool get _isTooShort =>
+      _rentalDays != null && _rentalDays! < RentalPricing.minRentalDays;
+
+  String? _datesError(bool showErrors) {
+    if (_dates == null)
+      return showErrors ? 'Vui lòng chọn thời gian thuê.' : null;
+
+    // Báo ngay khi chọn, không chờ bấm Lưu.
+    if (_isTooShort) {
+      return 'Thuê tối thiểu ${RentalPricing.minRentalDays} ngày, gồm cả ngày đầu và cuối.';
+    }
+
+    return null;
+  }
+
   Future<void> _submit() async {
     FocusScope.of(context).unfocus();
 
@@ -130,7 +150,7 @@ class _ReservationFormScreenState extends State<ReservationFormScreen> {
 
     final valid = _formKey.currentState!.validate();
 
-    if (!valid || _companyId == null || _dates == null) {
+    if (!valid || _companyId == null || _dates == null || _isTooShort) {
       setState(() => _autovalidateMode = AutovalidateMode.onUserInteraction);
       return;
     }
@@ -276,12 +296,10 @@ class _ReservationFormScreenState extends State<ReservationFormScreen> {
               value: _dates == null
                   ? null
                   : '${DateFormatter.dateRange(_dates!.start, _dates!.end)}'
-                        '  (${_dates!.duration.inDays + 1} ngày)',
+                        '  ($_rentalDays ngày)',
               placeholder: 'Chọn ngày',
               trailing: Icons.calendar_month_outlined,
-              errorText: showErrors && _dates == null
-                  ? 'Vui lòng chọn thời gian thuê.'
-                  : null,
+              errorText: _datesError(showErrors),
               onTap: _pickDates,
             ),
             const SizedBox(height: AppSpacing.xl),
