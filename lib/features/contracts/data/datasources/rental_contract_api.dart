@@ -182,10 +182,10 @@ class RentalContractApi {
   }
 }
 
-/// Nội dung tạo/sửa hợp đồng (thời gian, model, số lượng lấy theo phiếu).
+/// Nội dung tạo/sửa hợp đồng. Thời gian, model, số lượng lấy theo phiếu;
+/// loại thuê, đơn vị tính và đơn giá do Backend tính theo giá niêm yết.
 class RentalContractInput {
   const RentalContractInput({
-    required this.rentalType,
     required this.items,
     required this.services,
     required this.representative,
@@ -199,7 +199,6 @@ class RentalContractInput {
     this.note,
   });
 
-  final RentalType rentalType;
   final List<RentalContractItem> items;
   final List<RentalContractServiceModel> services;
   final ContractRepresentative representative;
@@ -209,19 +208,13 @@ class RentalContractInput {
   final String? deliveryAddress, deliveryNote, note;
 
   Map<String, dynamic> toJson() => {
-    'rentalType': rentalType.code,
     'deliveryAddress': deliveryAddress,
     'deliveryNote': deliveryNote,
     'note': note,
     'depositRequiredAmount': depositRequiredAmount,
     'items': [
       for (final item in items)
-        {
-          'equipmentModelId': item.equipmentModelId,
-          'billingUnit': item.billingUnit.code,
-          'agreedUnitPrice': item.agreedUnitPrice,
-          'note': item.note,
-        },
+        {'equipmentModelId': item.equipmentModelId, 'note': item.note},
     ],
     'services': [for (final service in services) service.toJson()],
     'representative': representative.toJson(),

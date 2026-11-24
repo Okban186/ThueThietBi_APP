@@ -15,6 +15,8 @@ class EquipmentModel {
     this.media = const [],
     this.operationalUnits,
     this.availableToday,
+    this.totalUnits,
+    this.categoryNames = const [],
   });
   final String id, code, name;
   final String? manufacturer, modelNumber, description, status, unit;
@@ -28,6 +30,18 @@ class EquipmentModel {
 
   /// Số máy khả dụng trong ngày hôm nay — từ `/api/equipment-models`.
   final int? availableToday;
+
+  /// Tổng số máy của model (mọi trạng thái).
+  final int? totalUnits;
+
+  /// Tên các danh mục của model.
+  final List<String> categoryNames;
+
+  /// Ảnh (bỏ video), ảnh đại diện đứng đầu.
+  List<EquipmentModelMedia> get images =>
+      media.where((m) => m.mediaType != 'VIDEO' && m.url != null).toList();
+
+  EquipmentModelMedia? get primaryImage => images.isEmpty ? null : images.first;
 
   factory EquipmentModel.fromJson(Map<String, dynamic> json) => EquipmentModel(
     id: json['id'] as String,
@@ -45,6 +59,11 @@ class EquipmentModel {
     status: json['status'] as String?,
     operationalUnits: (json['operationalUnits'] as num?)?.toInt(),
     availableToday: (json['availableToday'] as num?)?.toInt(),
+    totalUnits: (json['totalUnits'] as num?)?.toInt(),
+    categoryNames: [
+      for (final c in json['categories'] as List<dynamic>? ?? const [])
+        (c as Map<String, dynamic>)['name'] as String,
+    ],
     media: (json['media'] as List<dynamic>? ?? const [])
         .map((e) => EquipmentModelMedia.fromJson(e as Map<String, dynamic>))
         .toList(),
@@ -55,18 +74,20 @@ class EquipmentModelMedia {
   const EquipmentModelMedia({
     required this.id,
     required this.storageFileId,
+    this.url,
     this.mediaType,
     this.displayOrder,
     this.isPrimary,
   });
   final String id, storageFileId;
-  final String? mediaType;
+  final String? url, mediaType;
   final int? displayOrder;
   final bool? isPrimary;
   factory EquipmentModelMedia.fromJson(Map<String, dynamic> json) =>
       EquipmentModelMedia(
         id: json['id'] as String,
         storageFileId: json['storageFileId'] as String,
+        url: json['url'] as String?,
         mediaType: json['mediaType'] as String?,
         displayOrder: (json['displayOrder'] as num?)?.toInt(),
         isPrimary: json['isPrimary'] as bool?,

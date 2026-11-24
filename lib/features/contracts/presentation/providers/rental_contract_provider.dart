@@ -2,17 +2,24 @@ import 'package:flutter/foundation.dart';
 
 import 'package:thuethietbi_app/core/network/api_error_message.dart';
 
+import 'package:thuethietbi_app/features/equipment/data/datasources/equipment_model_api.dart';
+
 import '../../data/datasources/rental_contract_api.dart';
 import '../../data/models/rental_contract.dart';
+import '../../data/models/rental_contract_item.dart';
+import '../../data/models/rental_pricing.dart';
 import '../../data/models/rental_contract_suggestion.dart';
 
 /// Trạng thái tab "Hợp đồng" của nhân viên kinh doanh.
 /// Tải danh sách một lần rồi lọc tại client; chi tiết tải khi mở.
 class RentalContractProvider extends ChangeNotifier {
-  RentalContractProvider(this.api);
+  RentalContractProvider(this.api, this.equipmentModelApi);
 
   /// Dùng trực tiếp cho upload ảnh và lấy gợi ý ở màn hình form.
   final RentalContractApi api;
+
+  /// Lấy giá niêm yết hiện tại khi sửa hợp đồng.
+  final EquipmentModelApi equipmentModelApi;
 
   List<RentalContract> _contracts = [];
   final Map<String, RentalContract> _details = {};
@@ -82,6 +89,29 @@ class RentalContractProvider extends ChangeNotifier {
 
   Future<RentalContractSuggestion> getSuggestion(String reservationId) =>
       api.getSuggestion(reservationId);
+
+  /// Dòng thiết bị tính lại theo giá niêm yết hiện tại của model, giống cách
+  /// Backend tính khi lưu (dùng cho form sửa hợp đồng).
+  Future<List<RentalContractItem>> repriceItems(
+    List<RentalContractItem> items,
+    int rentalDays,
+  ) async {
+    final models = await Future.wait(
+      items.map((i) => equipmentModelApi.getModel(i.equipmentModelId)),
+    );
+
+    return [
+      for (var i = 0; i < items.length; i++)
+        items[i].copyWith(
+          billingUnit: BillingUnit.forDays(rentalDays),
+          agreedUnitPrice: RentalPricing.unitPriceFor(
+            rentalDays,
+            models[i].rentalPriceDaily,
+            models[i].rentalPriceMonthly,
+          ),
+        ),
+    ];
+  }
 
   Future<RentalContract> loadDetail(String id) async =>
       _store(await api.getDetail(id));

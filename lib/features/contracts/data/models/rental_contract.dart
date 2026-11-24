@@ -3,6 +3,7 @@ import 'contract_representative.dart';
 import 'contract_status_history.dart';
 import 'rental_contract_item.dart';
 import 'rental_contract_service_model.dart';
+import 'rental_pricing.dart';
 
 /// Trạng thái hợp đồng thuê.
 enum RentalContractStatus {
@@ -52,6 +53,10 @@ enum RentalType {
 
   static RentalType fromCode(String code) =>
       code.toUpperCase() == 'LONG_TERM' ? longTerm : shortTerm;
+
+  /// Loại thuê do hệ thống chọn theo số ngày thuê.
+  static RentalType forDays(int rentalDays) =>
+      RentalPricing.isLongTerm(rentalDays) ? longTerm : shortTerm;
 }
 
 /// Hợp đồng thuê (`/api/rental-contracts`).
