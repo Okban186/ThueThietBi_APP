@@ -16,6 +16,9 @@ import 'package:thuethietbi_app/features/equipment/presentation/storekeeper/scre
 import 'package:thuethietbi_app/features/equipment/presentation/storekeeper/screens/equipment_unit_form_screen.dart';
 import 'package:thuethietbi_app/features/equipment/presentation/storekeeper/screens/equipment_unit_list_screen.dart';
 import 'package:thuethietbi_app/features/equipment/presentation/storekeeper/widgets/quick_import_equipment_sheet.dart';
+import 'package:thuethietbi_app/features/handovers/data/datasources/handover_api.dart';
+import 'package:thuethietbi_app/features/handovers/presentation/storekeeper/screens/handover_home_screen.dart';
+import 'package:thuethietbi_app/features/returns/data/datasources/return_api.dart';
 import 'package:thuethietbi_app/shared/widgets/account/default_account_page.dart';
 import 'package:thuethietbi_app/shared/widgets/drawer/app_drawer.dart';
 import 'package:thuethietbi_app/shared/widgets/drawer/drawer_item.dart';
@@ -39,6 +42,9 @@ class _StorekeeperMainLayoutState extends State<StorekeeperMainLayout> {
   StorekeeperTab _currentTab = StorekeeperTab.dashboard;
 
   late final StorekeeperEquipmentApi _api;
+  late final HandoverApi _handoverApi;
+  late final ReturnApi _returnApi;
+  final _handoverKey = GlobalKey<HandoverHomeScreenState>();
   late final StorekeeperEquipmentProvider _provider;
   StorekeeperDashboardSummary _summary =
       const StorekeeperDashboardSummary.empty();
@@ -47,6 +53,8 @@ class _StorekeeperMainLayoutState extends State<StorekeeperMainLayout> {
   void initState() {
     super.initState();
     _api = StorekeeperEquipmentApi(context.read<ApiClient>());
+    _handoverApi = HandoverApi(context.read<ApiClient>());
+    _returnApi = ReturnApi(context.read<ApiClient>());
     _provider = StorekeeperEquipmentProvider(
       _api,
       isLeadStorekeeper: widget.isLeadStorekeeper,
@@ -72,6 +80,7 @@ class _StorekeeperMainLayoutState extends State<StorekeeperMainLayout> {
     if (tab == _currentTab) return;
     setState(() => _currentTab = tab);
     if (tab == StorekeeperTab.dashboard) _loadSummary();
+    if (tab == StorekeeperTab.handovers) _handoverKey.currentState?.reload();
   }
 
   String _roleLabel(User user) {
@@ -150,6 +159,11 @@ class _StorekeeperMainLayoutState extends State<StorekeeperMainLayout> {
                   _provider,
                   initialTab: 0,
                 ),
+              ),
+              HandoverHomeScreen(
+                key: _handoverKey,
+                api: _handoverApi,
+                returnApi: _returnApi,
               ),
               const EquipmentModelListScreen(),
               const EquipmentUnitListScreen(),

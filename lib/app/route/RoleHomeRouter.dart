@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:thuethietbi_app/features/dashboard/presentation/admin/admin_main_layout.dart';
+import 'package:thuethietbi_app/features/dashboard/presentation/company/company_main_layout.dart';
 import 'package:thuethietbi_app/features/dashboard/presentation/sales/sales_main_layout.dart';
 import 'package:thuethietbi_app/features/dashboard/presentation/storekeeper/storekeeper_main_layout.dart';
 import 'package:thuethietbi_app/shared/widgets/shared_widgets_test_screen.dart';
@@ -31,6 +32,10 @@ class RoleHomeRouter extends StatelessWidget {
       return StorekeeperMainLayout(
         isLeadStorekeeper: roles.contains('LEAD_STOREKEEPER'),
       );
+    }
+
+    if (roles.contains('COMPANY')) {
+      return const CompanyMainLayout();
     }
 
     return SharedWidgetsTestScreen();
