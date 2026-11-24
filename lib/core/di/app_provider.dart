@@ -25,8 +25,24 @@ Future<List<SingleChildWidget>> createAppProviders() async {
     tokenStorage: authSession,
   );
 
-  // Khởi tạo API.
   final authApi = AuthApi(apiClient);
+
+  // Tự động khôi phục phiên đăng nhập nếu máy còn lưu token.
+  final hasToken =
+      (authSession.accessToken != null &&
+          authSession.accessToken!.isNotEmpty) ||
+      (authSession.refreshToken != null &&
+          authSession.refreshToken!.isNotEmpty);
+
+  if (hasToken) {
+    try {
+      final user = await authApi.getProfile();
+      authSession.setCurrentUser(user);
+    } catch (_) {
+      // Token hết hạn / bị thu hồi hoặc lỗi xác thực -> xóa phiên cũ về LoginScreen.
+      await authSession.clearTokens();
+    }
+  }
 
   // Khởi tạo quản lý thông báo.
   final notificationProvider = NotificationProvider();
