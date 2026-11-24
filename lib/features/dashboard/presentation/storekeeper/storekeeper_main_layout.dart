@@ -8,7 +8,7 @@ import 'package:thuethietbi_app/core/theme/app_colors.dart';
 import 'package:thuethietbi_app/features/auth/data/models/user.dart';
 import 'package:thuethietbi_app/features/dashboard/data/models/storekeeper_dashboard_summary.dart';
 import 'package:thuethietbi_app/features/dashboard/presentation/storekeeper/storekeeper_dashboard_screen.dart';
-import 'package:thuethietbi_app/features/equipment/data/datasources/storagekeeper_equipment_api.dart';
+import 'package:thuethietbi_app/features/equipment/data/datasources/storekeeper_equipment_api.dart';
 import 'package:thuethietbi_app/features/equipment/presentation/providers/storekeeper_equipment_provider.dart';
 import 'package:thuethietbi_app/features/equipment/presentation/storekeeper/screens/category_warehourse_screen.dart';
 import 'package:thuethietbi_app/features/equipment/presentation/storekeeper/screens/equipment_model_form_screen.dart';
