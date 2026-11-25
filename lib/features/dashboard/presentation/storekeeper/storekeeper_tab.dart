@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 
 enum StorekeeperTab {
   dashboard('Tổng quan', Icons.home_outlined, Icons.home_rounded),
+  handovers(
+    'Giao nhận',
+    Icons.local_shipping_outlined,
+    Icons.local_shipping_rounded,
+  ),
   models('Model TB', Icons.category_outlined, Icons.category_rounded),
   equipments(
     'Thiết bị kho',
@@ -15,5 +20,5 @@ enum StorekeeperTab {
   final IconData icon;
   final IconData selectedIcon;
 
-  static const drawerTabs = [dashboard, models, equipments];
+  static const drawerTabs = [dashboard, handovers, models, equipments];
 }
