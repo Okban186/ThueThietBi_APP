@@ -5,10 +5,13 @@ import 'package:thuethietbi_app/core/network/api_error_message.dart';
 import 'package:thuethietbi_app/features/equipment/data/datasources/equipment_model_api.dart';
 
 import '../../data/datasources/rental_contract_api.dart';
+import '../../data/models/contract_billing.dart';
 import '../../data/models/rental_contract.dart';
 import '../../data/models/rental_contract_item.dart';
+import '../../data/models/rental_contract_service_model.dart';
 import '../../data/models/rental_pricing.dart';
 import '../../data/models/rental_contract_suggestion.dart';
+import '../../data/models/shipping_quote.dart';
 
 /// Trạng thái tab "Hợp đồng" của nhân viên kinh doanh.
 /// Tải danh sách một lần rồi lọc tại client; chi tiết tải khi mở.
@@ -89,6 +92,20 @@ class RentalContractProvider extends ChangeNotifier {
 
   Future<RentalContractSuggestion> getSuggestion(String reservationId) =>
       api.getSuggestion(reservationId);
+
+  Future<ShippingQuote> getShippingQuote({
+    String? reservationId,
+    String? contractId,
+    required ServiceProvider providedBy,
+    String? deliveryAddress,
+  }) => api.getShippingQuote(
+    reservationId: reservationId,
+    contractId: contractId,
+    providedBy: providedBy,
+    deliveryAddress: deliveryAddress,
+  );
+
+  Future<ContractBillingSummary> getBilling(String id) => api.getBilling(id);
 
   /// Dòng thiết bị tính lại theo giá niêm yết hiện tại của model, giống cách
   /// Backend tính khi lưu (dùng cho form sửa hợp đồng).

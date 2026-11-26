@@ -9,6 +9,7 @@ class RentalContractSuggestion {
     required this.reservationCode,
     required this.companyId,
     required this.companyName,
+    this.companyAddress,
     required this.startDate,
     required this.endDate,
     required this.rentalDays,
@@ -17,9 +18,11 @@ class RentalContractSuggestion {
     required this.items,
     required this.contractTotalAmount,
     required this.depositRequiredAmount,
+    this.shippingPolicySummary,
   });
 
   final String reservationId, reservationCode, companyId, companyName;
+  final String? companyAddress, shippingPolicySummary;
   final DateTime startDate, endDate;
   final int rentalDays;
   final RentalType rentalType;
@@ -33,6 +36,7 @@ class RentalContractSuggestion {
         reservationCode: json['reservationCode'] as String,
         companyId: json['companyId'] as String,
         companyName: json['companyName'] as String,
+        companyAddress: json['companyAddress'] as String?,
         startDate: DateTime.parse(json['startDate'] as String),
         endDate: DateTime.parse(json['endDate'] as String),
         rentalDays: (json['rentalDays'] as num).toInt(),
@@ -44,5 +48,6 @@ class RentalContractSuggestion {
         contractTotalAmount: (json['contractTotalAmount'] as num).toDouble(),
         depositRequiredAmount: (json['depositRequiredAmount'] as num)
             .toDouble(),
+        shippingPolicySummary: json['shippingPolicySummary'] as String?,
       );
 }

@@ -8,6 +8,7 @@ import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
+import 'package:thuethietbi_app/core/network/api_client.dart';
 import 'package:thuethietbi_app/core/network/api_error_message.dart';
 import 'package:thuethietbi_app/core/theme/app_colors.dart';
 import 'package:thuethietbi_app/core/theme/app_spacing.dart';
@@ -15,9 +16,13 @@ import 'package:thuethietbi_app/core/widgets/app_empty_view.dart';
 import 'package:thuethietbi_app/shared/formatters/currency_formatter.dart';
 import 'package:thuethietbi_app/shared/formatters/date_formatter.dart';
 
+import '../../../data/datasources/payment_api.dart';
 import '../../../data/datasources/rental_contract_api.dart';
+import '../../../data/models/contract_billing.dart';
 import '../../../data/models/rental_contract.dart';
 import '../../common/widgets/contract_status_badge.dart';
+import '../../common/widgets/contract_status_timeline.dart';
+import '../../common/widgets/vnpay_qr_sheet.dart';
 import '../../providers/rental_contract_provider.dart';
 import 'contract_form_screen.dart';
 
@@ -358,9 +363,31 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                     ),
                   ),
                   Text(
-                    'Đặt cọc ${CurrencyFormatter.vnd(c.depositRequiredAmount)}',
+                    'Đặt cọc ${CurrencyFormatter.vnd(c.depositRequiredAmount)}'
+                    '${c.depositRequiredAmount > 0 ? ' · Đã đóng ${CurrencyFormatter.vnd(c.depositPaidAmount)}' : ''}',
                     style: const TextStyle(color: AppColors.textSecondary),
                   ),
+                  if (c.status == RentalContractStatus.signed ||
+                      c.status == RentalContractStatus.preparing ||
+                      c.status == RentalContractStatus.partiallyDelivered ||
+                      c.status == RentalContractStatus.delivered)
+                    if (c.depositRequiredAmount > c.depositPaidAmount) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      OutlinedButton.icon(
+                        onPressed: () async {
+                          final paid = await VnpayQrSheet.open(
+                            context,
+                            api: PaymentApi(context.read<ApiClient>()),
+                            contractId: c.id,
+                            title: 'Đặt cọc ${c.contractCode}',
+                            targetType: PaymentTargetType.deposit,
+                          );
+                          if (paid && mounted) _load();
+                        },
+                        icon: const Icon(Icons.qr_code_2_rounded, size: 18),
+                        label: const Text('Tạo mã QR VNPAY thu cọc'),
+                      ),
+                    ],
                 ],
               ),
             ),
@@ -540,31 +567,8 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
             ],
             const SizedBox(height: AppSpacing.lg),
             _Section(
-              title: 'Lịch sử',
-              child: Column(
-                children: [
-                  for (final h in detail.statusHistory.reversed)
-                    ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(
-                        Icons.circle,
-                        size: 10,
-                        color: AppColors.primary,
-                      ),
-                      title: Text(
-                        h.status.label,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      subtitle: Text(
-                        [
-                          '${h.changedByName ?? ''} · ${DateFormatter.dateTime(h.changedAt)}',
-                          if (h.note != null) h.note!,
-                        ].join('\n'),
-                      ),
-                    ),
-                ],
-              ),
+              title: 'Lịch sử trạng thái',
+              child: ContractStatusTimeline(history: detail.statusHistory),
             ),
             const SizedBox(height: AppSpacing.xxl),
           ],

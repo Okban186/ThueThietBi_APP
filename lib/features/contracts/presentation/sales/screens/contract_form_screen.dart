@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -20,11 +21,15 @@ import '../../../data/models/rental_contract.dart';
 import '../../../data/models/rental_contract_item.dart';
 import '../../../data/models/rental_contract_service_model.dart';
 import '../../../data/models/rental_pricing.dart';
+import '../../../data/models/shipping_quote.dart';
 import '../../providers/rental_contract_provider.dart';
 import 'contract_detail_screen.dart';
 
 /// Tạo hợp đồng từ phiếu đã xác nhận ([reservationId]) hoặc sửa hợp đồng ([contract])
 /// khi còn Bản nháp / Bị từ chối.
+///
+/// Phí vận chuyển do Backend tự đo khoảng cách và tính theo chính sách ưu đãi thuê nhiều;
+/// Sales không được tự tạo dịch vụ hay sửa tay giá vận chuyển.
 class ContractFormScreen extends StatefulWidget {
   const ContractFormScreen._({this.reservationId, this.contract});
 
@@ -94,6 +99,7 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
   // Thông tin cố định theo phiếu.
   String _title = '';
   String _subtitle = '';
+  String? _shippingPolicySummary;
   late DateTime _startDate;
   late DateTime _endDate;
   int _rentalDays = 0;
@@ -101,7 +107,13 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
 
   RepresentativeType _repType = RepresentativeType.legal;
   List<RentalContractItem> _items = [];
-  final List<RentalContractServiceModel> _services = [];
+
+  // Vận chuyển tự động tính từ Backend (Sales chỉ chọn phương thức, không sửa giá).
+  ServiceProvider _deliveryProvider = ServiceProvider.rentalCompany;
+  ShippingQuote? _shippingQuote;
+  bool _isQuotingShipping = false;
+  String? _shippingError;
+  Timer? _quoteDebounce;
 
   /// Cọc tự tính theo tỷ lệ cho đến khi Sales sửa tay.
   bool _depositEdited = false;
@@ -124,6 +136,7 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
 
   @override
   void dispose() {
+    _quoteDebounce?.cancel();
     for (final c in [
       _deliveryAddressController,
       _deliveryNoteController,
@@ -157,12 +170,16 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
         final s = await provider.getSuggestion(widget.reservationId!);
         _title = 'Tạo hợp đồng';
         _subtitle = 'Từ phiếu ${s.reservationCode} · ${s.companyName}';
+        _shippingPolicySummary = s.shippingPolicySummary;
         _startDate = s.startDate;
         _endDate = s.endDate;
         _rentalDays = s.rentalDays;
         _depositRate = s.depositRate;
         _items = s.items;
         _depositController.text = s.depositRequiredAmount.round().toString();
+        if (s.companyAddress != null && s.companyAddress!.trim().isNotEmpty) {
+          _deliveryAddressController.text = s.companyAddress!.trim();
+        }
       }
     } catch (error) {
       _loadError = apiErrorMessage(
@@ -171,6 +188,13 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+
+    if (mounted &&
+        _loadError == null &&
+        (_deliveryProvider == ServiceProvider.customer ||
+            _deliveryAddressController.text.trim().isNotEmpty)) {
+      _fetchShippingQuote();
     }
   }
 
@@ -184,9 +208,13 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
     _endDate = contract.endDate;
     _rentalDays = contract.rentalDays;
     _items = detail.items;
-    _services
-      ..clear()
-      ..addAll(detail.services);
+
+    final existingDelivery = detail.services
+        .where((s) => s.serviceType == ContractServiceType.delivery)
+        .firstOrNull;
+    _deliveryProvider =
+        existingDelivery?.providedBy ?? ServiceProvider.rentalCompany;
+
     _deliveryAddressController.text = detail.deliveryAddress ?? '';
     _deliveryNoteController.text = detail.deliveryNote ?? '';
     _noteController.text = detail.note ?? '';
@@ -211,9 +239,7 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
     }
   }
 
-  // ------------------------------------------------------------ tiền
-  // Loại thuê, đơn vị tính và đơn giá theo số ngày thuê và giá niêm yết của
-  // model (RentalPricing), Sales không sửa được.
+  // ------------------------------------------------------------ tiền & vận chuyển
 
   RentalType get _rentalType => RentalType.forDays(_rentalDays);
 
@@ -225,11 +251,11 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
   double get _itemsTotal =>
       _items.fold(0.0, (sum, item) => sum + _amountOf(item));
 
-  double get _servicesTotal => _services
-      .where((s) => s.isCharged)
-      .fold(0.0, (sum, s) => sum + s.quantity * s.unitPrice);
+  double get _shippingFee => _deliveryProvider == ServiceProvider.customer
+      ? 0.0
+      : (_shippingQuote?.finalFee ?? 0.0);
 
-  double get _total => _itemsTotal + _servicesTotal;
+  double get _total => _itemsTotal + _shippingFee;
 
   void _recalculate() {
     if (!_depositEdited) {
@@ -239,23 +265,73 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
     setState(() {});
   }
 
-  // ------------------------------------------------------------ dịch vụ
-
-  Future<void> _editService({int? index}) async {
-    final result = await showDialog<RentalContractServiceModel>(
-      context: context,
-      builder: (_) =>
-          _ServiceDialog(initial: index == null ? null : _services[index]),
-    );
-
-    if (result == null) return;
-
-    if (index == null) {
-      _services.add(result);
-    } else {
-      _services[index] = result;
+  void _scheduleShippingQuote() {
+    _quoteDebounce?.cancel();
+    if (_deliveryProvider == ServiceProvider.customer) {
+      _fetchShippingQuote();
+      return;
     }
-    _recalculate();
+
+    final address = _deliveryAddressController.text.trim();
+    if (address.length < 5) {
+      setState(() {
+        _shippingQuote = null;
+        _shippingError = null;
+      });
+      _recalculate();
+      return;
+    }
+
+    _quoteDebounce = Timer(
+      const Duration(milliseconds: 900),
+      _fetchShippingQuote,
+    );
+  }
+
+  Future<void> _fetchShippingQuote() async {
+    _quoteDebounce?.cancel();
+    final address = _deliveryAddressController.text.trim();
+
+    if (_deliveryProvider == ServiceProvider.rentalCompany && address.isEmpty) {
+      setState(() {
+        _shippingQuote = null;
+        _shippingError = 'Nhập địa chỉ giao hàng để hệ thống tính phí.';
+      });
+      _recalculate();
+      return;
+    }
+
+    setState(() {
+      _isQuotingShipping = true;
+      _shippingError = null;
+    });
+
+    try {
+      final quote = await context.read<RentalContractProvider>().getShippingQuote(
+        reservationId: widget.isEditing ? null : widget.reservationId,
+        contractId: widget.isEditing ? widget.contract!.id : null,
+        providedBy: _deliveryProvider,
+        deliveryAddress: address.isEmpty ? null : address,
+      );
+      if (!mounted) return;
+      setState(() {
+        _shippingQuote = quote;
+        _shippingError = null;
+      });
+      _recalculate();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _shippingQuote = null;
+        _shippingError = apiErrorMessage(
+          error,
+          fallback: 'Chưa đo được khoảng cách giao hàng.',
+        );
+      });
+      _recalculate();
+    } finally {
+      if (mounted) setState(() => _isQuotingShipping = false);
+    }
   }
 
   // ------------------------------------------------------------ giấy tờ
@@ -357,15 +433,15 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
         }
       }
 
-      // 2. Lưu hợp đồng.
-      setState(() => _submitStep = 'Đang lưu hợp đồng...');
+      // 2. Lưu hợp đồng (Backend tự tính và khóa phí vận chuyển).
+      setState(() => _submitStep = 'Đang tính phí & lưu hợp đồng...');
 
       String? optional(TextEditingController c) =>
           c.text.trim().isEmpty ? null : c.text.trim();
 
       final input = RentalContractInput(
         items: _items,
-        services: _services,
+        deliveryProvidedBy: _deliveryProvider,
         representative: ContractRepresentative(
           fullName: _repNameController.text.trim(),
           idNumber: _repIdController.text.trim(),
@@ -455,7 +531,6 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      // Hỏi lại trước khi thoát để không mất dữ liệu đã nhập.
       canPop: _isLoading || _loadError != null,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop || _isSubmitting) return;
@@ -524,7 +599,9 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
             ),
             const SizedBox(height: AppSpacing.lg),
             _Section(
-              title: 'Thông tin thuê',
+              title: 'Thông tin thuê & vận chuyển',
+              subtitle:
+                  'Phí vận chuyển do hệ thống tự tính theo khoảng cách (2 lượt) và ưu đãi thuê nhiều.',
               children: [
                 _ReadOnlyRow(
                   icon: Icons.date_range_outlined,
@@ -541,16 +618,75 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
                       : '${_rentalType.label} (đến ${RentalPricing.shortTermMaxDays} ngày, tính theo giá ngày)',
                 ),
                 const SizedBox(height: AppSpacing.md),
+                const Text(
+                  'Phương thức vận chuyển',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                SegmentedButton<ServiceProvider>(
+                  segments: const [
+                    ButtonSegment(
+                      value: ServiceProvider.rentalCompany,
+                      label: Text('Bên cho thuê giao'),
+                      icon: Icon(Icons.local_shipping_outlined, size: 18),
+                    ),
+                    ButtonSegment(
+                      value: ServiceProvider.customer,
+                      label: Text('Khách tự vận chuyển'),
+                      icon: Icon(Icons.directions_car_outlined, size: 18),
+                    ),
+                  ],
+                  selected: {_deliveryProvider},
+                  onSelectionChanged: (selection) {
+                    setState(() => _deliveryProvider = selection.first);
+                    _fetchShippingQuote();
+                  },
+                ),
+                const SizedBox(height: AppSpacing.md),
                 TextFormField(
                   controller: _deliveryAddressController,
-                  decoration: const InputDecoration(
-                    labelText: 'Địa chỉ giao hàng',
-                    prefixIcon: Icon(Icons.location_on_outlined),
+                  decoration: InputDecoration(
+                    labelText: _deliveryProvider == ServiceProvider.rentalCompany
+                        ? 'Địa chỉ giao hàng *'
+                        : 'Địa chỉ giao hàng (không bắt buộc)',
+                    hintText: 'VD: 123 Nguyễn Văn Linh, Quận 7, TP. Hồ Chí Minh',
+                    prefixIcon: const Icon(Icons.location_on_outlined),
+                    suffixIcon: _deliveryProvider ==
+                            ServiceProvider.rentalCompany
+                        ? IconButton(
+                            tooltip: 'Tính phí vận chuyển',
+                            onPressed: _isQuotingShipping
+                                ? null
+                                : _fetchShippingQuote,
+                            icon: _isQuotingShipping
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.route_outlined),
+                          )
+                        : null,
                   ),
-                  validator: (v) => (v ?? '').trim().length > 500
-                      ? 'Tối đa 500 ký tự.'
-                      : null,
+                  onChanged: (_) => _scheduleShippingQuote(),
+                  validator: (v) {
+                    final text = (v ?? '').trim();
+                    if (_deliveryProvider == ServiceProvider.rentalCompany &&
+                        text.isEmpty) {
+                      return 'Vui lòng nhập địa chỉ giao hàng.';
+                    }
+                    if (text.length > 500) return 'Tối đa 500 ký tự.';
+                    return null;
+                  },
                 ),
+                const SizedBox(height: AppSpacing.md),
+                _buildShippingQuoteCard(),
                 const SizedBox(height: AppSpacing.md),
                 TextFormField(
                   controller: _deliveryNoteController,
@@ -567,42 +703,6 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
               subtitle: 'Model và số lượng theo phiếu đã xác nhận.',
               children: [
                 for (var i = 0; i < _items.length; i++) _buildItemRow(i),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            _Section(
-              title: 'Dịch vụ đi kèm',
-              subtitle: 'Chỉ dịch vụ do bên cho thuê thực hiện mới tính tiền.',
-              trailing: TextButton.icon(
-                onPressed: () => _editService(),
-                icon: const Icon(Icons.add_rounded, size: 18),
-                label: const Text('Thêm'),
-              ),
-              children: [
-                if (_services.isEmpty)
-                  const Text(
-                    'Chưa có dịch vụ.',
-                    style: TextStyle(color: AppColors.textSecondary),
-                  ),
-                for (var i = 0; i < _services.length; i++)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(_services[i].serviceType.label),
-                    subtitle: Text(
-                      '${_services[i].providedBy.label} · ${_services[i].quantity} × ${CurrencyFormatter.vnd(_services[i].unitPrice)}',
-                    ),
-                    trailing: IconButton(
-                      icon: const Icon(
-                        Icons.delete_outline_rounded,
-                        color: AppColors.error,
-                      ),
-                      onPressed: () {
-                        _services.removeAt(i);
-                        _recalculate();
-                      },
-                    ),
-                    onTap: () => _editService(index: i),
-                  ),
               ],
             ),
             const SizedBox(height: AppSpacing.lg),
@@ -707,8 +807,10 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
               children: [
                 _MoneyRow(label: 'Tiền thuê thiết bị', value: _itemsTotal),
                 _MoneyRow(
-                  label: 'Dịch vụ (bên cho thuê)',
-                  value: _servicesTotal,
+                  label: _deliveryProvider == ServiceProvider.customer
+                      ? 'Phí vận chuyển (khách tự vận chuyển)'
+                      : 'Phí vận chuyển (tự động, 2 lượt)',
+                  value: _shippingFee,
                 ),
                 const Divider(height: AppSpacing.xl),
                 _MoneyRow(label: 'Tổng giá trị', value: _total, bold: true),
@@ -756,6 +858,183 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
             const SizedBox(height: AppSpacing.xxl),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildShippingQuoteCard() {
+    if (_deliveryProvider == ServiceProvider.customer) {
+      return Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.successLight,
+          borderRadius: BorderRadius.circular(AppSpacing.borderRadius),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.check_circle_outline_rounded, color: AppColors.success),
+            SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                'Khách hàng tự vận chuyển · Phí vận chuyển: 0 đ (khóa tự động).',
+                style: TextStyle(
+                  color: AppColors.success,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_isQuotingShipping) {
+      return Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceSecondary,
+          borderRadius: BorderRadius.circular(AppSpacing.borderRadius),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: const Row(
+          children: [
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Text(
+                'Đang đo khoảng cách từ Kho chính và tính phí vận chuyển...',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_shippingError != null) {
+      return Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.warningLight,
+          borderRadius: BorderRadius.circular(AppSpacing.borderRadius),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: AppColors.warning),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                _shippingError!,
+                style: const TextStyle(color: AppColors.warning, fontSize: 13),
+              ),
+            ),
+            TextButton(
+              onPressed: _fetchShippingQuote,
+              child: const Text('Thử lại'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final q = _shippingQuote;
+    if (q == null) {
+      return Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.infoLight,
+          borderRadius: BorderRadius.circular(AppSpacing.borderRadius),
+        ),
+        child: Text(
+          _shippingPolicySummary ??
+              'Nhập địa chỉ giao hàng rồi bấm biểu tượng lộ trình để hệ thống tự tính phí vận chuyển.',
+          style: const TextStyle(
+            color: AppColors.info,
+            fontSize: 12.5,
+            height: 1.35,
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceSecondary,
+        borderRadius: BorderRadius.circular(AppSpacing.borderRadius),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.lock_outline_rounded,
+                size: 16,
+                color: AppColors.primary,
+              ),
+              const SizedBox(width: 6),
+              const Expanded(
+                child: Text(
+                  'Phí vận chuyển tự động (không chỉnh tay)',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+              Text(
+                q.finalFee == 0 ? 'Miễn phí' : CurrencyFormatter.vnd(q.finalFee),
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Khoảng cách: ${q.distanceKm?.toStringAsFixed(1) ?? '0'} km (× ${q.trips} lượt giao & thu hồi)'
+            '${q.isEstimated ? ' · ước lượng' : ''}',
+            style: const TextStyle(
+              fontSize: 12.5,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          Text(
+            'Miễn phí ${q.freeRadiusKm.toStringAsFixed(0)} km đầu · Tính phí ${q.chargeableKm.toStringAsFixed(1)} km × ${CurrencyFormatter.vnd(q.pricePerKmOneWay)}/km/lượt',
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          if (q.promotionDescription != null) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.successLight,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                q.promotionDescription!,
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.success,
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -863,12 +1142,10 @@ class _Section extends StatelessWidget {
     required this.title,
     required this.children,
     this.subtitle,
-    this.trailing,
   });
 
   final String title;
   final String? subtitle;
-  final Widget? trailing;
   final List<Widget> children;
 
   @override
@@ -883,19 +1160,9 @@ class _Section extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              ?trailing,
-            ],
+          Text(
+            title,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
           ),
           if (subtitle != null) ...[
             const SizedBox(height: 2),
@@ -927,7 +1194,6 @@ class _ReadOnlyRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Nhãn ở trên, giá trị ở dưới để khoảng ngày dài không bị ngắt dòng.
     return Row(
       children: [
         Icon(icon, size: 20, color: AppColors.textSecondary),
@@ -1061,131 +1327,6 @@ class _DocumentTile extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _ServiceDialog extends StatefulWidget {
-  const _ServiceDialog({this.initial});
-
-  final RentalContractServiceModel? initial;
-
-  @override
-  State<_ServiceDialog> createState() => _ServiceDialogState();
-}
-
-class _ServiceDialogState extends State<_ServiceDialog> {
-  final _formKey = GlobalKey<FormState>();
-  late ContractServiceType _type =
-      widget.initial?.serviceType ?? ContractServiceType.delivery;
-  late ServiceProvider _provider =
-      widget.initial?.providedBy ?? ServiceProvider.rentalCompany;
-  late final _quantityController = TextEditingController(
-    text: '${widget.initial?.quantity ?? 1}',
-  );
-  late final _priceController = TextEditingController(
-    text: '${widget.initial?.unitPrice.round() ?? 0}',
-  );
-  late final _noteController = TextEditingController(
-    text: widget.initial?.note,
-  );
-
-  @override
-  void dispose() {
-    _quantityController.dispose();
-    _priceController.dispose();
-    _noteController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.initial == null ? 'Thêm dịch vụ' : 'Sửa dịch vụ'),
-      content: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<ContractServiceType>(
-                initialValue: _type,
-                decoration: const InputDecoration(labelText: 'Loại dịch vụ'),
-                items: [
-                  for (final t in ContractServiceType.values)
-                    DropdownMenuItem(value: t, child: Text(t.label)),
-                ],
-                onChanged: (v) => setState(() => _type = v ?? _type),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              DropdownButtonFormField<ServiceProvider>(
-                initialValue: _provider,
-                decoration: const InputDecoration(labelText: 'Bên thực hiện'),
-                items: [
-                  for (final p in ServiceProvider.values)
-                    DropdownMenuItem(value: p, child: Text(p.label)),
-                ],
-                onChanged: (v) => setState(() => _provider = v ?? _provider),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _quantityController,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      decoration: const InputDecoration(labelText: 'SL'),
-                      validator: (v) =>
-                          (int.tryParse(v ?? '') ?? 0) < 1 ? 'Từ 1' : null,
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    flex: 2,
-                    child: TextFormField(
-                      controller: _priceController,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      decoration: const InputDecoration(
-                        labelText: 'Đơn giá (đ)',
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.md),
-              TextFormField(
-                controller: _noteController,
-                decoration: const InputDecoration(labelText: 'Ghi chú'),
-              ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Hủy'),
-        ),
-        FilledButton(
-          onPressed: () {
-            if (!_formKey.currentState!.validate()) return;
-            final note = _noteController.text.trim();
-            Navigator.pop(
-              context,
-              RentalContractServiceModel(
-                serviceType: _type,
-                providedBy: _provider,
-                quantity: int.parse(_quantityController.text),
-                unitPrice: double.tryParse(_priceController.text) ?? 0,
-                note: note.isEmpty ? null : note,
-              ),
-            );
-          },
-          child: const Text('Lưu'),
-        ),
-      ],
     );
   }
 }

@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:thuethietbi_app/core/network/api_client.dart';
+import 'package:thuethietbi_app/features/contracts/data/models/contract_billing.dart';
 import 'package:thuethietbi_app/features/contracts/data/models/rental_contract.dart';
 import 'package:thuethietbi_app/features/handovers/data/models/handover_preparation.dart';
 
@@ -57,6 +58,15 @@ class CustomerPortalApi {
     return response.data!
         .map((e) => HandoverDetail.fromJson(e as Map<String, dynamic>))
         .toList();
+  }
+
+  /// Tổng quan chi phí, các đợt thanh toán, khoản phạt/bồi thường và giao dịch thanh toán.
+  Future<ContractBillingSummary> getBilling(String contractId) async {
+    final response = await _apiClient.get<Map<String, dynamic>>(
+      '/api/customer/contracts/$contractId/billing',
+    );
+
+    return ContractBillingSummary.fromJson(response.data!);
   }
 
   /// Hợp đồng PDF điền sẵn từ mẫu.
