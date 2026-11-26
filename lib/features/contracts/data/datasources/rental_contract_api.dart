@@ -5,11 +5,13 @@ import 'package:thuethietbi_app/core/network/api_client.dart';
 import 'package:thuethietbi_app/features/storage/data/datasources/cloudinary_uploader.dart';
 import 'package:thuethietbi_app/features/storage/data/models/upload_ticket.dart';
 
+import '../models/contract_billing.dart';
 import '../models/contract_representative.dart';
 import '../models/rental_contract.dart';
 import '../models/rental_contract_item.dart';
 import '../models/rental_contract_service_model.dart';
 import '../models/rental_contract_suggestion.dart';
+import '../models/shipping_quote.dart';
 
 /// Gọi API hợp đồng thuê (`/api/rental-contracts`).
 class RentalContractApi {
@@ -44,6 +46,35 @@ class RentalContractApi {
     );
 
     return RentalContractSuggestion.fromJson(response.data!);
+  }
+
+  /// Báo giá phí vận chuyển tự động từ Backend (Sales chỉ xem).
+  Future<ShippingQuote> getShippingQuote({
+    String? reservationId,
+    String? contractId,
+    required ServiceProvider providedBy,
+    String? deliveryAddress,
+  }) async {
+    final response = await _apiClient.post<Map<String, dynamic>>(
+      '/api/rental-contracts/shipping-quote',
+      data: {
+        'reservationId': ?reservationId,
+        'contractId': ?contractId,
+        'providedBy': providedBy.code,
+        'deliveryAddress': deliveryAddress,
+      },
+    );
+
+    return ShippingQuote.fromJson(response.data!);
+  }
+
+  /// Tổng quan chi phí, các đợt thanh toán tiền thuê và khoản phạt của hợp đồng.
+  Future<ContractBillingSummary> getBilling(String id) async {
+    final response = await _apiClient.get<Map<String, dynamic>>(
+      '/api/rental-contracts/$id/billing',
+    );
+
+    return ContractBillingSummary.fromJson(response.data!);
   }
 
   /// Xuất hợp đồng PDF điền sẵn từ mẫu (bản nháp nếu chưa được duyệt).
@@ -187,7 +218,7 @@ class RentalContractApi {
 class RentalContractInput {
   const RentalContractInput({
     required this.items,
-    required this.services,
+    required this.deliveryProvidedBy,
     required this.representative,
     required this.depositRequiredAmount,
     required this.idCardFrontFileId,
@@ -200,7 +231,7 @@ class RentalContractInput {
   });
 
   final List<RentalContractItem> items;
-  final List<RentalContractServiceModel> services;
+  final ServiceProvider deliveryProvidedBy;
   final ContractRepresentative representative;
   final double depositRequiredAmount;
   final String idCardFrontFileId, idCardBackFileId, businessLicenseFileId;
@@ -209,6 +240,7 @@ class RentalContractInput {
 
   Map<String, dynamic> toJson() => {
     'deliveryAddress': deliveryAddress,
+    'deliveryProvidedBy': deliveryProvidedBy.code,
     'deliveryNote': deliveryNote,
     'note': note,
     'depositRequiredAmount': depositRequiredAmount,
@@ -216,7 +248,6 @@ class RentalContractInput {
       for (final item in items)
         {'equipmentModelId': item.equipmentModelId, 'note': item.note},
     ],
-    'services': [for (final service in services) service.toJson()],
     'representative': representative.toJson(),
     'documents': {
       'idCardFrontFileId': idCardFrontFileId,

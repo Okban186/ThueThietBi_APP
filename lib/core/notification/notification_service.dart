@@ -1,4 +1,5 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Notification;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
@@ -28,7 +29,7 @@ class NotificationService {
   bool _initialized = false;
 
   Future<void> initialize() async {
-    if (_initialized) return;
+    if (_initialized || kIsWeb) return;
     _initialized = true;
 
     // Xin quyền nhận thông báo.

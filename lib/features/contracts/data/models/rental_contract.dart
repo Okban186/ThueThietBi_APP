@@ -76,6 +76,7 @@ class RentalContract {
     this.companyName,
     this.contractTotalAmount = 0,
     this.depositRequiredAmount = 0,
+    this.depositPaidAmount = 0,
     this.itemCount = 0,
     this.totalQuantity = 0,
     this.createdByName,
@@ -90,7 +91,7 @@ class RentalContract {
   final DateTime startDate, endDate;
   final RentalType rentalType;
   final RentalContractStatus status;
-  final double contractTotalAmount, depositRequiredAmount;
+  final double contractTotalAmount, depositRequiredAmount, depositPaidAmount;
   final int itemCount, totalQuantity;
   final String? createdByName;
 
@@ -132,6 +133,7 @@ class RentalContract {
     status: RentalContractStatus.fromCode(json['status'] as String),
     contractTotalAmount: _num(json['contractTotalAmount']),
     depositRequiredAmount: _num(json['depositRequiredAmount']),
+    depositPaidAmount: _num(json['depositPaidAmount']),
     itemCount: (json['itemCount'] as num?)?.toInt() ?? 0,
     totalQuantity: (json['totalQuantity'] as num?)?.toInt() ?? 0,
     createdBy: json['createdById'] as String,
