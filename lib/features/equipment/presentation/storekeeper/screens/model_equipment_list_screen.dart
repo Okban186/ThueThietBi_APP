@@ -7,6 +7,7 @@ import 'package:thuethietbi_app/core/widgets/app_empty_view.dart';
 import 'package:thuethietbi_app/core/widgets/app_filter_chip.dart';
 import 'package:thuethietbi_app/features/equipment/presentation/providers/storekeeper_equipment_provider.dart';
 
+import 'equipment_history_screen.dart';
 import 'equipment_unit_form_screen.dart';
 
 class ModelEquipmentListScreen extends StatefulWidget {
@@ -254,75 +255,88 @@ class _ModelEquipmentListScreenState extends State<ModelEquipmentListScreen> {
                             st != 'RENTED' &&
                             st != 'RESERVED';
 
-                        return Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
+                        return Material(
+                          color: AppColors.surface,
+                          shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: AppColors.border),
+                            side: const BorderSide(color: AppColors.border),
                           ),
-                          child: Row(
-                            children: [
-                              const CircleAvatar(
-                                backgroundColor: AppColors.primaryLight,
-                                child: Icon(
-                                  Icons.qr_code_2_rounded,
-                                  color: AppColors.primary,
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      eq['serialNumber'] as String,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 14.5,
-                                      ),
+                          clipBehavior: Clip.antiAlias,
+                          child: InkWell(
+                            onTap: () => EquipmentHistoryScreen.open(
+                              ctx,
+                              api: widget.provider.api,
+                              equipmentId: eq['id'] as String,
+                              serialHint: eq['serialNumber'] as String?,
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: Row(
+                                children: [
+                                  const CircleAvatar(
+                                    backgroundColor: AppColors.primaryLight,
+                                    child: Icon(
+                                      Icons.qr_code_2_rounded,
+                                      color: AppColors.primary,
+                                      size: 20,
                                     ),
-                                    Text(
-                                      '${eq['warehouseName']} • Tình trạng: ${eq['condition']}',
-                                      style: const TextStyle(
-                                        fontSize: 12.5,
-                                        color: AppColors.textSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Text(
-                                st,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: st == 'AVAILABLE'
-                                      ? AppColors.success
-                                      : (st == 'DAMAGED'
-                                            ? AppColors.error
-                                            : AppColors.warning),
-                                ),
-                              ),
-                              if (canEdit)
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.edit_outlined,
-                                    color: AppColors.primary,
-                                    size: 20,
                                   ),
-                                  onPressed: () async {
-                                    final ok =
-                                        await EquipmentUnitFormScreen.open(
-                                          ctx,
-                                          widget.provider,
-                                          existingEquipment: eq,
-                                        );
-                                    if (ok == true) _loadFirstPage();
-                                  },
-                                ),
-                            ],
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          eq['serialNumber'] as String,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 14.5,
+                                          ),
+                                        ),
+                                        Text(
+                                          '${eq['warehouseName']} • Tình trạng: ${eq['condition']} • Chạm xem lịch sử',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: AppColors.textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Text(
+                                    st,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: st == 'AVAILABLE'
+                                          ? AppColors.success
+                                          : (st == 'DAMAGED'
+                                                ? AppColors.error
+                                                : AppColors.warning),
+                                    ),
+                                  ),
+                                  if (canEdit)
+                                    IconButton(
+                                      tooltip: 'Sửa thiết bị',
+                                      icon: const Icon(
+                                        Icons.edit_outlined,
+                                        color: AppColors.primary,
+                                        size: 20,
+                                      ),
+                                      onPressed: () async {
+                                        final ok =
+                                            await EquipmentUnitFormScreen.open(
+                                              ctx,
+                                              widget.provider,
+                                              existingEquipment: eq,
+                                            );
+                                        if (ok == true) _loadFirstPage();
+                                      },
+                                    ),
+                                ],
+                              ),
+                            ),
                           ),
                         );
                       },

@@ -2,7 +2,7 @@ import 'package:thuethietbi_app/core/network/api_client.dart';
 
 import '../models/handover_preparation.dart';
 
-/// Gọi API phiếu bàn giao (`/api/handovers`): thủ kho soạn phiếu cho hợp đồng đã ký.
+/// Gọi API phiếu bàn giao (`/api/handovers`): thủ kho soạn 1 phiếu trọn gói cho hợp đồng.
 class HandoverApi {
   HandoverApi(this._apiClient);
 
@@ -45,6 +45,21 @@ class HandoverApi {
         .toList();
   }
 
+  Future<SerialLookupResult> lookupSerial({
+    required String serial,
+    required String contractId,
+  }) async {
+    final response = await _apiClient.get<Map<String, dynamic>>(
+      '/api/handovers/lookup-serial',
+      queryParameters: {
+        'serial': serial.trim(),
+        'contractId': contractId,
+      },
+    );
+
+    return SerialLookupResult.fromJson(response.data!);
+  }
+
   Future<List<HandoverSummary>> getNotes({HandoverStatus? status}) async {
     final response = await _apiClient.get<List<dynamic>>(
       '/api/handovers',
@@ -82,8 +97,24 @@ class HandoverApi {
     return HandoverDetail.fromJson(response.data!);
   }
 
-  /// Soạn xong: chuyển phiếu chờ quản lý duyệt xuất kho.
+  /// Thủ kho tiếp nhận phụ trách soạn phiếu bàn giao (tách bạch giữa các Thủ kho).
+  Future<HandoverDetail> claim(String id) => _action(id, 'claim');
+
   Future<HandoverDetail> submit(String id) => _action(id, 'submit');
+
+  /// KTV/Manager hoàn tất bàn giao tại hiện trường (có thể kèm danh sách máy lỗi).
+  Future<HandoverDetail> completeDelivery(
+    String id, {
+    String? note,
+    List<DefectiveDeliveryItemInput> defectiveItems = const [],
+  }) => _action(
+    id,
+    'complete-delivery',
+    data: {
+      if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
+      'defectiveItems': [for (final item in defectiveItems) item.toJson()],
+    },
+  );
 
   Future<HandoverDetail> cancel(String id, String reason) =>
       _action(id, 'cancel', data: {'reason': reason});

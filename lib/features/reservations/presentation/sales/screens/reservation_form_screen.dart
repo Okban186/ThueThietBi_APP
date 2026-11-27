@@ -108,16 +108,26 @@ class _ReservationFormScreenState extends State<ReservationFormScreen> {
     }
   }
 
-  Future<void> _pickDates() async {
+  static const int _minAdvanceBookingDays = 3;
+
+  DateTime get _minStartDate {
     final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
+    return DateTime(now.year, now.month, now.day)
+        .add(const Duration(days: _minAdvanceBookingDays));
+  }
+
+  Future<void> _pickDates() async {
+    final minStart = _minStartDate;
+    final safeInitial =
+        _dates != null && !_dates!.start.isBefore(minStart) ? _dates : null;
 
     final picked = await showDateRangePicker(
       context: context,
-      firstDate: today,
-      lastDate: DateTime(today.year + 2, 12, 31),
-      initialDateRange: _dates,
-      helpText: 'Chọn thời gian thuê',
+      firstDate: minStart,
+      lastDate: DateTime(minStart.year + 2, 12, 31),
+      initialDateRange: safeInitial,
+      helpText:
+          'Chọn ngày thuê (bắt đầu từ ${DateFormatter.date(minStart)} trở đi)',
       saveText: 'Chọn',
     );
 
@@ -128,12 +138,20 @@ class _ReservationFormScreenState extends State<ReservationFormScreen> {
       ? null
       : RentalPricing.rentalDays(_dates!.start, _dates!.end);
 
+  bool get _isTooSoon =>
+      _dates != null && _dates!.start.isBefore(_minStartDate);
+
   bool get _isTooShort =>
       _rentalDays != null && _rentalDays! < RentalPricing.minRentalDays;
 
   String? _datesError(bool showErrors) {
-    if (_dates == null)
+    if (_dates == null) {
       return showErrors ? 'Vui lòng chọn thời gian thuê.' : null;
+    }
+
+    if (_isTooSoon) {
+      return 'Ngày bắt đầu thuê phải cách hôm nay tối thiểu $_minAdvanceBookingDays ngày (từ ${DateFormatter.date(_minStartDate)} trở đi).';
+    }
 
     // Báo ngay khi chọn, không chờ bấm Lưu.
     if (_isTooShort) {
@@ -150,7 +168,11 @@ class _ReservationFormScreenState extends State<ReservationFormScreen> {
 
     final valid = _formKey.currentState!.validate();
 
-    if (!valid || _companyId == null || _dates == null || _isTooShort) {
+    if (!valid ||
+        _companyId == null ||
+        _dates == null ||
+        _isTooSoon ||
+        _isTooShort) {
       setState(() => _autovalidateMode = AutovalidateMode.onUserInteraction);
       return;
     }

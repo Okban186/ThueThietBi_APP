@@ -11,7 +11,8 @@ enum RentalContractStatus {
   pendingApproval('PENDING_APPROVAL', 'Chờ duyệt'),
   rejected('REJECTED', 'Bị từ chối'),
   pendingSignature('PENDING_SIGNATURE', 'Chờ ký'),
-  signed('SIGNED', 'Đã ký'),
+  signed('SIGNED', 'Chờ duyệt bản ký'),
+  pendingDeposit('PENDING_DEPOSIT', 'Chờ đặt cọc'),
   preparing('PREPARING', 'Đang chuẩn bị'),
   partiallyDelivered('PARTIALLY_DELIVERED', 'Giao một phần'),
   delivered('DELIVERED', 'Đã giao'),
@@ -32,6 +33,8 @@ enum RentalContractStatus {
     rejected,
     pendingSignature,
     signed,
+    pendingDeposit,
+    preparing,
     cancelled,
   ];
 
@@ -106,6 +109,9 @@ class RentalContract {
   final RentalContractDetail? detail;
 
   int get rentalDays => endDate.difference(startDate).inDays + 1;
+
+  /// Hạn chót hoàn tất tiền đặt cọc (lùi 2 ngày trước ngày bắt đầu thuê).
+  DateTime get depositDeadline => startDate.subtract(const Duration(days: 2));
 
   bool get isEditable =>
       status == RentalContractStatus.draft ||

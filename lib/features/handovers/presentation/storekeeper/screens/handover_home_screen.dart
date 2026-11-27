@@ -6,6 +6,7 @@ import 'package:thuethietbi_app/core/theme/app_spacing.dart';
 import 'package:thuethietbi_app/core/widgets/app_empty_view.dart';
 import 'package:thuethietbi_app/core/widgets/app_filter_chip.dart';
 import 'package:thuethietbi_app/core/widgets/app_scrollable_center.dart';
+import 'package:thuethietbi_app/features/contracts/data/models/rental_contract.dart';
 import 'package:thuethietbi_app/features/contracts/presentation/common/widgets/contract_status_badge.dart';
 import 'package:thuethietbi_app/features/returns/data/datasources/return_api.dart';
 import 'package:thuethietbi_app/features/returns/presentation/storekeeper/screens/return_list_view.dart';
@@ -270,6 +271,76 @@ class _ContractCard extends StatelessWidget {
               ),
             ],
           ),
+          if (c.hasPendingDefectiveReturn) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.errorLight,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'Chờ thu hồi xong phiếu ${c.pendingDefectiveReturnCode ?? ''} trước khi giao bù',
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.error,
+                ),
+              ),
+            ),
+          ] else if (c.hasBlockedIncidentReplacement) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.errorLight,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                c.blockedIncidentReplacementReason!,
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.error,
+                ),
+              ),
+            ),
+          ] else if (c.hasReadyIncidentReplacement) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.infoLight,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'Sẵn sàng soạn máy thay thế sự cố ${c.readyIncidentCode ?? ''} (${c.remainingQuantity} máy)',
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.info,
+                ),
+              ),
+            ),
+          ] else if (c.contractStatus == RentalContractStatus.partiallyDelivered &&
+              c.remainingQuantity > 0) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.successLight,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'Sẵn sàng soạn phiếu giao bù (${c.remainingQuantity} máy)',
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.success,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -458,14 +529,47 @@ class HandoverNoteCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(
-                  note.handoverCode,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                  ),
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        note.handoverCode,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    if (note.isSupplementary || note.isIncidentReplacement) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: note.isIncidentReplacement
+                              ? AppColors.infoLight
+                              : AppColors.warningLight,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          note.isIncidentReplacement ? 'Đổi sự cố' : 'Giao bù',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: note.isIncidentReplacement
+                                ? AppColors.info
+                                : AppColors.warning,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
+              const SizedBox(width: 6),
               HandoverStatusBadge(status: note.status),
             ],
           ),
@@ -497,6 +601,26 @@ class HandoverNoteCard extends StatelessWidget {
           _IconText(
             icon: Icons.person_outline_rounded,
             text: 'Người nhận: ${note.receivedByName}',
+          ),
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: note.isClaimed
+                  ? AppColors.primaryLight
+                  : AppColors.warningLight,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              note.isClaimed
+                  ? 'Phụ trách: ${note.assignedStorekeeperName ?? 'Tôi'}'
+                  : 'Chưa ai tiếp nhận — Chạm để nhận soạn',
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                color: note.isClaimed ? AppColors.primary : AppColors.warning,
+              ),
+            ),
           ),
         ],
       ),

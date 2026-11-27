@@ -104,7 +104,22 @@ class _CategoryWarehouseScreenState extends State<CategoryWarehouseScreen> {
             ),
             FilledButton(
               onPressed: () async {
-                if (nameCtrl.text.trim().isEmpty) return;
+                final trimmedName = nameCtrl.text.trim();
+                if (trimmedName.isEmpty) return;
+                final isDuplicate = widget.provider.categories.any(
+                  (c) =>
+                      c.id != existing?.id &&
+                      c.name.trim().toLowerCase() == trimmedName.toLowerCase(),
+                );
+                if (isDuplicate) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    const SnackBar(
+                      content: Text('Tên danh mục đã tồn tại, vui lòng đặt tên khác.'),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
+                  return;
+                }
                 final payload = {
                   'name': nameCtrl.text.trim(),
                   'description': descCtrl.text.trim().isEmpty

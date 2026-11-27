@@ -4,6 +4,7 @@ import 'package:thuethietbi_app/core/network/api_error_message.dart';
 import 'package:thuethietbi_app/core/theme/app_colors.dart';
 import 'package:thuethietbi_app/core/theme/app_spacing.dart';
 import 'package:thuethietbi_app/core/widgets/app_empty_view.dart';
+import 'package:thuethietbi_app/features/contracts/data/models/rental_contract.dart';
 import 'package:thuethietbi_app/features/contracts/presentation/common/widgets/contract_status_badge.dart';
 import 'package:thuethietbi_app/shared/formatters/date_formatter.dart';
 
@@ -13,8 +14,7 @@ import 'handover_detail_screen.dart';
 import 'handover_form_screen.dart';
 import 'handover_home_screen.dart';
 
-/// Chuẩn bị bàn giao cho một hợp đồng: số lượng từng model, các phiếu đã soạn,
-/// nút lập phiếu mới cho số máy còn thiếu.
+/// Chuẩn bị bàn giao cho một hợp đồng (áp dụng 1 phiếu bàn giao trọn gói duy nhất).
 class HandoverContractScreen extends StatefulWidget {
   const HandoverContractScreen({
     super.key,
@@ -93,8 +93,85 @@ class _HandoverContractScreenState extends State<HandoverContractScreen> {
   @override
   Widget build(BuildContext context) {
     final detail = _detail;
-    final remaining =
-        detail?.items.fold<int>(0, (s, i) => s + i.remainingQuantity) ?? 0;
+    final openSub = detail?.openSupplementaryNote;
+    final openIncRepl = detail?.openIncidentReplacementNote;
+    final initialNote = detail?.activeInitialNote;
+
+    Widget? bottomBar;
+    if (detail != null) {
+      if (detail.canCreateInitialNote) {
+        bottomBar = _bottomBarWrap(
+          FilledButton.icon(
+            onPressed: () => _createNote(detail),
+            icon: const Icon(Icons.playlist_add_rounded),
+            label: const Text('Lập phiếu bàn giao trọn gói'),
+          ),
+        );
+      } else if (detail.canCreateIncidentReplacementNote) {
+        bottomBar = _bottomBarWrap(
+          FilledButton.icon(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.info),
+            onPressed: () => _createNote(detail),
+            icon: const Icon(Icons.swap_horiz_rounded),
+            label: Text(
+              'Lập phiếu giao máy thay thế (${detail.contract.readyIncidentCode ?? ''} • ${detail.contract.remainingQuantity} máy)',
+            ),
+          ),
+        );
+      } else if (openIncRepl != null) {
+        bottomBar = _bottomBarWrap(
+          FilledButton.tonalIcon(
+            onPressed: () async {
+              await HandoverDetailScreen.open(
+                context,
+                widget.api,
+                openIncRepl.id,
+              );
+              _load();
+            },
+            icon: const Icon(Icons.description_outlined),
+            label: Text('Mở phiếu đổi sự cố ${openIncRepl.handoverCode}'),
+          ),
+        );
+      } else if (detail.canCreateSupplementaryNote) {
+        bottomBar = _bottomBarWrap(
+          FilledButton.icon(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.warning),
+            onPressed: () => _createNote(detail),
+            icon: const Icon(Icons.local_shipping_outlined),
+            label: Text(
+              'Lập phiếu giao bù (${detail.contract.remainingQuantity} máy còn thiếu)',
+            ),
+          ),
+        );
+      } else if (openSub != null) {
+        bottomBar = _bottomBarWrap(
+          FilledButton.tonalIcon(
+            onPressed: () async {
+              await HandoverDetailScreen.open(context, widget.api, openSub.id);
+              _load();
+            },
+            icon: const Icon(Icons.description_outlined),
+            label: Text('Mở phiếu giao bù ${openSub.handoverCode}'),
+          ),
+        );
+      } else if (initialNote != null) {
+        bottomBar = _bottomBarWrap(
+          FilledButton.tonalIcon(
+            onPressed: () async {
+              await HandoverDetailScreen.open(
+                context,
+                widget.api,
+                initialNote.id,
+              );
+              _load();
+            },
+            icon: const Icon(Icons.description_outlined),
+            label: Text('Mở phiếu ${initialNote.handoverCode} (Phiếu gốc)'),
+          ),
+        );
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -104,24 +181,20 @@ class _HandoverContractScreenState extends State<HandoverContractScreen> {
         ),
       ),
       body: _buildBody(detail),
-      bottomNavigationBar: detail == null || remaining <= 0
-          ? null
-          : SafeArea(
-              child: Container(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: const BoxDecoration(
-                  color: AppColors.surface,
-                  border: Border(top: BorderSide(color: AppColors.border)),
-                ),
-                child: FilledButton.icon(
-                  onPressed: () => _createNote(detail),
-                  icon: const Icon(Icons.playlist_add_rounded),
-                  label: Text('Lập phiếu bàn giao (còn $remaining máy)'),
-                ),
-              ),
-            ),
+      bottomNavigationBar: bottomBar,
     );
   }
+
+  Widget _bottomBarWrap(Widget child) => SafeArea(
+    child: Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(top: BorderSide(color: AppColors.border)),
+      ),
+      child: child,
+    ),
+  );
 
   Widget _buildBody(PreparationContractDetail? detail) {
     if (detail == null && _isLoading) {
@@ -185,6 +258,121 @@ class _HandoverContractScreenState extends State<HandoverContractScreen> {
               ],
             ),
           ),
+          if (c.hasBlockedIncidentReplacement) ...[
+            const SizedBox(height: AppSpacing.md),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.errorLight,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AppColors.error.withValues(alpha: 0.4),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.lock_clock_outlined,
+                    color: AppColors.error,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      c.blockedIncidentReplacementReason!,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: AppColors.error,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else if (c.hasReadyIncidentReplacement) ...[
+            const SizedBox(height: AppSpacing.md),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.infoLight,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AppColors.info.withValues(alpha: 0.4),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.swap_horiz_rounded,
+                    color: AppColors.info,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Sự cố ${c.readyIncidentCode ?? ''} đã hoàn tất kiểm tra/tài chính. Thủ kho có thể lập phiếu giao máy thay thế (${c.remainingQuantity} máy) để bàn giao lại cho khách dùng tiếp.',
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: AppColors.info,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (c.contractStatus == RentalContractStatus.partiallyDelivered &&
+              c.remainingQuantity > 0) ...[
+            const SizedBox(height: AppSpacing.md),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: c.hasPendingDefectiveReturn
+                    ? AppColors.errorLight
+                    : AppColors.warningLight,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: (c.hasPendingDefectiveReturn
+                          ? AppColors.error
+                          : AppColors.warning)
+                      .withValues(alpha: 0.4),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    c.hasPendingDefectiveReturn
+                        ? Icons.lock_clock_outlined
+                        : Icons.info_outline_rounded,
+                    color: c.hasPendingDefectiveReturn
+                        ? AppColors.error
+                        : AppColors.warning,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      c.hasPendingDefectiveReturn
+                          ? 'Bắt buộc hoàn tất kiểm nhận phiếu thu hồi máy lỗi ${c.pendingDefectiveReturnCode ?? ''} (tab Nhận trả) trước khi lập phiếu giao bù ${c.remainingQuantity} máy còn thiếu.'
+                          : 'Đã thu hồi xong máy lỗi về kho. Hợp đồng còn thiếu ${c.remainingQuantity} máy — Thủ kho có thể lập phiếu giao bù (miễn phí vận chuyển).',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: c.hasPendingDefectiveReturn
+                            ? AppColors.error
+                            : AppColors.warning,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: AppSpacing.lg),
           _Section(
             title: 'Thiết bị cần chuẩn bị',
@@ -199,7 +387,7 @@ class _HandoverContractScreenState extends State<HandoverContractScreen> {
             title: 'Phiếu bàn giao (${detail.notes.length})',
             child: detail.notes.isEmpty
                 ? const Text(
-                    'Chưa có phiếu nào. Bấm "Lập phiếu bàn giao" để chọn máy.',
+                    'Chưa có phiếu nào. Bấm "Lập phiếu bàn giao trọn gói" để chọn máy (hỗ trợ quét barcode & đề xuất thay thế model).',
                     style: TextStyle(color: AppColors.textSecondary),
                   )
                 : Column(
@@ -280,13 +468,13 @@ class _ItemProgress extends StatelessWidget {
                 : '${item.modelCode} · Còn thiếu ${item.remainingQuantity} · Kho sẵn ${item.availableInStock}',
             style: TextStyle(
               fontSize: 12.5,
-              color: shortage ? AppColors.error : AppColors.textSecondary,
+              color: shortage ? AppColors.warning : AppColors.textSecondary,
             ),
           ),
           if (shortage)
             const Text(
-              'Kho không đủ máy sẵn sàng, cần báo quản lý.',
-              style: TextStyle(fontSize: 12.5, color: AppColors.error),
+              'Kho không đủ model này — có thể quét/nhập serial model tương đương hoặc cao hơn để đề xuất thay thế.',
+              style: TextStyle(fontSize: 12, color: AppColors.warning),
             ),
         ],
       ),

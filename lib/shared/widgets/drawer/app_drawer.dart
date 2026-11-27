@@ -6,6 +6,7 @@ import 'package:thuethietbi_app/features/notifications/presentation/common/scree
 import 'package:thuethietbi_app/shared/widgets/user/user_profile_card.dart';
 
 import '../../../core/auth/auth_session.dart';
+import '../../../core/notification/notification_service.dart';
 import '../../../features/auth/data/datasources/auth_api.dart';
 import '../../../features/notifications/data/providers/notification_provider.dart';
 import 'drawer_item.dart';
@@ -140,8 +141,6 @@ class _AppDrawer extends State<AppDrawer> {
                 ),
               ),
             ),
-
-            Image.asset('assets/images/login_city_bottom.png'),
           ],
         ),
       ),
@@ -181,8 +180,10 @@ class _AppDrawer extends State<AppDrawer> {
   Future<void> _logout() async {
     final authApi = context.read<AuthApi>();
     final authSession = context.read<AuthSession>();
+    final notificationService = context.read<NotificationService>();
 
     try {
+      await notificationService.unregisterCurrentDevice();
       await authApi.logout();
     } catch (e) {
       // API logout thất bại vẫn phải xóa phiên cục bộ.

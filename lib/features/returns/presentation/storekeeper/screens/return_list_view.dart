@@ -13,8 +13,8 @@ import '../../../data/models/return_receipt.dart';
 import 'return_contract_screen.dart';
 import 'return_detail_screen.dart';
 
-/// Tab "Nhận trả" của thủ kho: hợp đồng còn máy ở chỗ khách và các phiếu
-/// nhận trả gần đây.
+/// Tab "Nhận trả" của thủ kho: phiếu thu hồi hủy giữa chừng chờ kiểm nhận,
+/// hợp đồng còn máy ở chỗ khách và các phiếu nhận trả gần đây.
 class ReturnListView extends StatefulWidget {
   const ReturnListView({super.key, required this.api});
 
@@ -98,15 +98,38 @@ class ReturnListViewState extends State<ReturnListView>
         child: AppEmptyView(
           icon: Icons.move_to_inbox_outlined,
           title: 'Chưa có máy cần nhận trả',
-          message: 'Hợp đồng có máy đã giao cho khách sẽ hiện ở đây để kho nhận lại khi kỹ thuật viên thu hồi.',
+          message:
+              'Hợp đồng có máy đã giao hoặc phiếu thu hồi hủy giao giữa chừng sẽ hiện ở đây.',
         ),
       );
     }
+
+    final pendingProcessing =
+        _receipts.where((r) => r.isProcessing).toList();
+    final completedReceipts =
+        _receipts.where((r) => !r.isProcessing).toList();
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(AppSpacing.lg),
       children: [
+        if (pendingProcessing.isNotEmpty) ...[
+          _Header(
+            'Phiếu thu hồi chờ kiểm nhận & bảo dưỡng (${pendingProcessing.length})',
+          ),
+          for (final r in pendingProcessing)
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.md),
+              child: ReturnReceiptCard(
+                receipt: r,
+                onTap: () async {
+                  await ReturnDetailScreen.open(context, widget.api, r.id);
+                  reload();
+                },
+              ),
+            ),
+          const SizedBox(height: AppSpacing.sm),
+        ],
         _Header('Hợp đồng còn máy ở chỗ khách (${_contracts.length})'),
         if (_contracts.isEmpty)
           const Padding(
@@ -131,15 +154,18 @@ class ReturnListViewState extends State<ReturnListView>
               },
             ),
           ),
-        if (_receipts.isNotEmpty) ...[
+        if (completedReceipts.isNotEmpty) ...[
           const SizedBox(height: AppSpacing.sm),
-          _Header('Phiếu nhận trả (${_receipts.length})'),
-          for (final r in _receipts)
+          _Header('Phiếu nhận trả đã hoàn tất (${completedReceipts.length})'),
+          for (final r in completedReceipts)
             Padding(
               padding: const EdgeInsets.only(bottom: AppSpacing.md),
               child: ReturnReceiptCard(
                 receipt: r,
-                onTap: () => ReturnDetailScreen.open(context, widget.api, r.id),
+                onTap: () async {
+                  await ReturnDetailScreen.open(context, widget.api, r.id);
+                  reload();
+                },
               ),
             ),
         ],
@@ -238,7 +264,6 @@ class _ContractCard extends StatelessWidget {
   }
 }
 
-/// Thẻ phiếu nhận trả: mã, hợp đồng, thời điểm, số máy nhận / hỏng / mất.
 class ReturnReceiptCard extends StatelessWidget {
   const ReturnReceiptCard({
     super.key,
@@ -255,6 +280,7 @@ class ReturnReceiptCard extends StatelessWidget {
 
     return _Card(
       onTap: onTap,
+      borderColor: r.isProcessing ? AppColors.warning : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -269,13 +295,20 @@ class ReturnReceiptCard extends StatelessWidget {
                   ),
                 ),
               ),
-              Text(
-                DateFormatter.dateTime(r.returnedAt),
-                style: const TextStyle(
-                  fontSize: 12.5,
-                  color: AppColors.textSecondary,
+              if (r.isProcessing)
+                _Pill(
+                  'Chờ kiểm nhận',
+                  AppColors.warning,
+                  AppColors.warningLight,
+                )
+              else
+                Text(
+                  DateFormatter.dateTime(r.returnedAt),
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 2),
@@ -293,18 +326,46 @@ class ReturnReceiptCard extends StatelessWidget {
             spacing: 6,
             runSpacing: 6,
             children: [
+              if (r.isCancelledShipment)
+                _Pill(
+                  'Thu hồi hủy giữa chừng → Bảo dưỡng',
+                  AppColors.error,
+                  AppColors.errorLight,
+                ),
+              if (r.isDefectiveOnDelivery)
+                _Pill(
+                  'Thu hồi máy lỗi khi giao → Bảo dưỡng',
+                  AppColors.error,
+                  AppColors.errorLight,
+                ),
+              if (r.isIncidentReturn)
+                _Pill(
+                  'Thu hồi từ sự cố → Bảo dưỡng',
+                  AppColors.error,
+                  AppColors.errorLight,
+                ),
+              if (r.isProcessing)
+                _Pill(
+                  r.isClaimed
+                      ? 'Phụ trách: ${r.assignedStorekeeperName ?? 'Tôi'}'
+                      : 'Chưa ai tiếp nhận',
+                  r.isClaimed ? AppColors.primary : AppColors.warning,
+                  r.isClaimed ? AppColors.primaryLight : AppColors.warningLight,
+                ),
               _Pill(
-                'Nhận ${r.returnedCount}',
-                AppColors.success,
-                AppColors.successLight,
+                r.isProcessing
+                    ? 'Cần kiểm ${r.totalCount} máy'
+                    : 'Nhận ${r.returnedCount}',
+                r.isProcessing ? AppColors.warning : AppColors.success,
+                r.isProcessing ? AppColors.warningLight : AppColors.successLight,
               ),
-              if (r.damagedCount > 0)
+              if (!r.isProcessing && r.damagedCount > 0)
                 _Pill(
                   'Hỏng ${r.damagedCount}',
                   AppColors.warning,
                   AppColors.warningLight,
                 ),
-              if (r.missingCount > 0)
+              if (!r.isProcessing && r.missingCount > 0)
                 _Pill(
                   'Thất lạc ${r.missingCount}',
                   AppColors.error,
@@ -345,10 +406,11 @@ class _Pill extends StatelessWidget {
 }
 
 class _Card extends StatelessWidget {
-  const _Card({required this.child, required this.onTap});
+  const _Card({required this.child, required this.onTap, this.borderColor});
 
   final Widget child;
   final VoidCallback onTap;
+  final Color? borderColor;
 
   @override
   Widget build(BuildContext context) {
@@ -362,7 +424,7 @@ class _Card extends StatelessWidget {
           padding: const EdgeInsets.all(AppSpacing.lg),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-            border: Border.all(color: AppColors.border),
+            border: Border.all(color: borderColor ?? AppColors.border),
           ),
           child: child,
         ),

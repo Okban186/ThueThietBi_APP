@@ -208,9 +208,14 @@ class _TimelineItem extends StatelessWidget {
           Icons.draw_outlined,
         ),
         RentalContractStatus.signed => (
-          AppColors.success,
-          AppColors.successLight,
-          Icons.verified_rounded,
+          AppColors.primary,
+          AppColors.primaryLight,
+          Icons.fact_check_outlined,
+        ),
+        RentalContractStatus.pendingDeposit => (
+          AppColors.warning,
+          AppColors.warningLight,
+          Icons.account_balance_wallet_outlined,
         ),
         RentalContractStatus.preparing => (
           AppColors.info,

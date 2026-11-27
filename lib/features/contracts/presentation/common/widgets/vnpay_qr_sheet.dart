@@ -291,6 +291,28 @@ class _VnpayQrSheetState extends State<VnpayQrSheet> {
       return;
     }
 
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hủy giao dịch VNPAY?'),
+        content: const Text(
+          'Mã QR hiện tại sẽ bị hủy vĩnh viễn. Nếu bạn chỉ muốn tạm đóng để xem lại sau, hãy nhấn ra ngoài hoặc bấm Đóng — mã QR vẫn giữ nguyên cho tới khi hết hạn.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Giữ lại QR'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Hủy giao dịch'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
     setState(() => _isBusyAction = true);
     try {
       await widget.api.cancel(txn.id);
@@ -646,6 +668,12 @@ class _VnpayQrSheetState extends State<VnpayQrSheet> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          const Text(
+            'Đóng cửa sổ này sẽ KHÔNG hủy mã QR — mở lại sẽ tiếp tục phiên thanh toán còn hạn.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
           ),
         ] else ...[
           FilledButton.icon(

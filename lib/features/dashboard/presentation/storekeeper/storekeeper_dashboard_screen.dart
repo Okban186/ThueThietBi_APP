@@ -59,6 +59,11 @@ class StorekeeperDashboardScreen extends StatelessWidget {
                   ),
                   child: Column(
                     children: [
+                      _OperationsWorkflowCard(
+                        summary: summary,
+                        onNavigate: onNavigate,
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
                       _InventoryOverviewCard(
                         summary: summary,
                         onNavigate: onNavigate,
@@ -584,6 +589,255 @@ class _RecentEquipmentsCard extends StatelessWidget {
                 ),
               ),
         ],
+      ),
+    );
+  }
+}
+
+
+class _OperationsWorkflowCard extends StatelessWidget {
+  const _OperationsWorkflowCard({
+    required this.summary,
+    required this.onNavigate,
+  });
+
+  final StorekeeperDashboardSummary summary;
+  final ValueChanged<StorekeeperTab> onNavigate;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.assignment_turned_in_outlined,
+                color: AppColors.primary,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Công việc Giao nhận & Thu hồi của tôi',
+                  style: TextStyle(
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () => onNavigate(StorekeeperTab.handovers),
+                child: const Text('Mở giao nhận >'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // 1. Phiếu bàn giao
+          _WorkflowGroup(
+            icon: Icons.outbox_rounded,
+            title: 'Phiếu bàn giao',
+            pills: [
+              _StatusPillData(
+                'Chưa ai nhận',
+                summary.unclaimedHandoversCount,
+                AppColors.warning,
+                AppColors.warningLight,
+              ),
+              _StatusPillData(
+                'Của tôi đang soạn',
+                summary.myPreparingHandoversCount,
+                AppColors.primary,
+                AppColors.primaryLight,
+              ),
+              _StatusPillData(
+                'Chờ Manager duyệt',
+                summary.myPendingApprovalHandoversCount,
+                AppColors.info,
+                AppColors.infoLight,
+              ),
+            ],
+            onTap: () => onNavigate(StorekeeperTab.handovers),
+          ),
+          const SizedBox(height: 8),
+          // 2. Phiếu thu hồi
+          _WorkflowGroup(
+            icon: Icons.assignment_return_outlined,
+            title: 'Phiếu thu hồi về kho',
+            pills: [
+              _StatusPillData(
+                'Chưa ai nhận',
+                summary.unclaimedReturnsCount,
+                AppColors.error,
+                AppColors.errorLight,
+              ),
+              _StatusPillData(
+                'Tôi đang kiểm nhận',
+                summary.myProcessingReturnsCount,
+                AppColors.warning,
+                AppColors.warningLight,
+              ),
+            ],
+            onTap: () => onNavigate(StorekeeperTab.handovers),
+          ),
+          const SizedBox(height: 8),
+          // 3. Giao bù máy lỗi
+          _WorkflowGroup(
+            icon: Icons.replay_circle_filled_outlined,
+            title: 'Hợp đồng giao bù máy lỗi',
+            pills: [
+              _StatusPillData(
+                'Chờ thu hồi xong',
+                summary.waitingDefectiveReturnContractsCount,
+                AppColors.error,
+                AppColors.errorLight,
+              ),
+              _StatusPillData(
+                'Sẵn sàng soạn bù',
+                summary.readySupplementaryContractsCount,
+                AppColors.success,
+                AppColors.successLight,
+              ),
+            ],
+            onTap: () => onNavigate(StorekeeperTab.handovers),
+          ),
+          const SizedBox(height: 8),
+          // 4. Đề xuất đổi Model
+          _WorkflowGroup(
+            icon: Icons.swap_horiz_rounded,
+            title: 'Đề xuất đổi Model',
+            pills: [
+              _StatusPillData(
+                'Chờ duyệt',
+                summary.pendingReplacementsCount,
+                AppColors.warning,
+                AppColors.warningLight,
+              ),
+              _StatusPillData(
+                'Đã duyệt',
+                summary.approvedReplacementsCount,
+                AppColors.success,
+                AppColors.successLight,
+              ),
+              _StatusPillData(
+                'Từ chối',
+                summary.rejectedReplacementsCount,
+                AppColors.error,
+                AppColors.errorLight,
+              ),
+            ],
+            onTap: () => onNavigate(StorekeeperTab.handovers),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusPillData {
+  const _StatusPillData(this.label, this.count, this.fg, this.bg);
+  final String label;
+  final int count;
+  final Color fg, bg;
+}
+
+class _WorkflowGroup extends StatelessWidget {
+  const _WorkflowGroup({
+    required this.icon,
+    required this.title,
+    required this.pills,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final List<_StatusPillData> pills;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.surfaceSecondary,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, size: 17, color: AppColors.primary),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 18,
+                    color: AppColors.textSecondary,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final p in pills)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: p.count > 0 ? p.bg : AppColors.surface,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: p.count > 0
+                              ? p.fg.withValues(alpha: 0.35)
+                              : AppColors.border,
+                        ),
+                      ),
+                      child: Text(
+                        '${p.label}: ${p.count}',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: p.count > 0 ? p.fg : AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
