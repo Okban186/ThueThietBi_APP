@@ -15,6 +15,7 @@ import 'package:thuethietbi_app/core/theme/app_spacing.dart';
 import 'package:thuethietbi_app/core/widgets/app_empty_view.dart';
 import 'package:thuethietbi_app/shared/formatters/currency_formatter.dart';
 import 'package:thuethietbi_app/shared/formatters/date_formatter.dart';
+import 'package:thuethietbi_app/shared/widgets/media/media_viewer_gallery.dart';
 
 import '../../../data/datasources/payment_api.dart';
 import '../../../data/datasources/rental_contract_api.dart';
@@ -50,6 +51,7 @@ class ContractDetailScreen extends StatefulWidget {
 }
 
 class _ContractDetailScreenState extends State<ContractDetailScreen> {
+  ContractBillingSummary? _billing;
   bool _isLoading = true;
   bool _isSubmitting = false;
   String? _loadError;
@@ -58,6 +60,202 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  Widget _buildSalesDepositPanel(RentalContract c) {
+    final remaining = (c.depositRequiredAmount - c.depositPaidAmount)
+        .clamp(0.0, double.infinity);
+    final pendingCash = (_billing?.transactions ?? const [])
+        .where(
+          (t) =>
+              t.targetType == PaymentTargetType.deposit &&
+              t.paymentMethod == PaymentMethod.cash &&
+              t.status == PaymentTransactionStatus.pending,
+        )
+        .toList();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceSecondary,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            c.status == RentalContractStatus.pendingDeposit
+                ? 'Chờ đặt cọc ${CurrencyFormatter.vnd(remaining)} (hạn chót trước ${DateFormatter.date(c.depositDeadline)} — quá hạn hợp đồng tự hủy)'
+                : 'Tiền đặt cọc còn thiếu: ${CurrencyFormatter.vnd(remaining)}',
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 12.5,
+              color: AppColors.warning,
+            ),
+          ),
+          if (pendingCash.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            for (final txn in pendingCash)
+              Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.warningLight,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Hóa đơn thu trực tiếp: ${txn.txnRef}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                        color: AppColors.warning,
+                      ),
+                    ),
+                    Text(
+                      'Số tiền: ${CurrencyFormatter.vnd(txn.amount)} • Người thu: ${txn.createdByName ?? 'Sales'} • Đang chờ Quản lý duyệt',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: _isSubmitting
+                    ? null
+                    : () async {
+                        final paid = await VnpayQrSheet.open(
+                          context,
+                          api: PaymentApi(context.read<ApiClient>()),
+                          contractId: c.id,
+                          title: 'Đặt cọc ${c.contractCode}',
+                          targetType: PaymentTargetType.deposit,
+                        );
+                        if (paid && mounted) _load();
+                      },
+                icon: const Icon(Icons.qr_code_2_rounded, size: 18),
+                label: const Text('Mã QR VNPAY thu cọc'),
+              ),
+              if (pendingCash.isEmpty)
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.success,
+                  ),
+                  onPressed: _isSubmitting
+                      ? null
+                      : () => _openDirectCashDepositDialog(c, remaining),
+                  icon: const Icon(Icons.receipt_long_rounded, size: 18),
+                  label: const Text('Đã nhận cọc trực tiếp'),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openDirectCashDepositDialog(
+    RentalContract c,
+    double remainingAmount,
+  ) async {
+    final amountCtrl = TextEditingController(
+      text: remainingAmount.round().toString(),
+    );
+    final noteCtrl = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Xác nhận đã nhận cọc trực tiếp'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Hệ thống sẽ tạo 1 hóa đơn thanh toán cọc gắn với tài khoản của bạn (Sales) và gửi lên Quản lý duyệt trước khi chuyển sang chuẩn bị hàng.',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: amountCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Số tiền cọc đã nhận (VNĐ) *',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: noteCtrl,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Ghi chú hóa đơn (VD: Người nộp, chuyển khoản/tiền mặt...)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.success),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Tạo hóa đơn thu cọc'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) {
+      amountCtrl.dispose();
+      noteCtrl.dispose();
+      return;
+    }
+
+    final raw = amountCtrl.text.replaceAll(RegExp(r'[^0-9]'), '');
+    final amount = double.tryParse(raw) ?? 0;
+    final note = noteCtrl.text.trim();
+    amountCtrl.dispose();
+    noteCtrl.dispose();
+
+    if (amount < 1000) {
+      _showMessage('Số tiền cọc phải tối thiểu 1.000 đ.', isError: true);
+      return;
+    }
+
+    await _run(() async {
+      final txn = await PaymentApi(context.read<ApiClient>()).createCashPayment(
+        rentalContractId: c.id,
+        targetType: PaymentTargetType.deposit,
+        amount: amount,
+        note: note.isEmpty ? 'Sales xác nhận đã nhận tiền cọc trực tiếp' : note,
+      );
+      await _load();
+      if (mounted) {
+        _showMessage(
+          'Đã tạo hóa đơn thu cọc ${txn.txnRef} (${CurrencyFormatter.vnd(txn.amount)}). Chờ Quản lý duyệt!',
+        );
+      }
+    }, 'Đã ghi nhận hóa đơn thu cọc.');
   }
 
   Future<void> _load() async {
@@ -70,6 +268,12 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
       await context.read<RentalContractProvider>().loadDetail(
         widget.contractId,
       );
+      try {
+        final billing = await RentalContractApi(
+          context.read<ApiClient>(),
+        ).getBilling(widget.contractId);
+        if (mounted) _billing = billing;
+      } catch (_) {}
     } catch (error) {
       _loadError = apiErrorMessage(error, fallback: 'Không tải được hợp đồng.');
     } finally {
@@ -367,26 +571,32 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                     '${c.depositRequiredAmount > 0 ? ' · Đã đóng ${CurrencyFormatter.vnd(c.depositPaidAmount)}' : ''}',
                     style: const TextStyle(color: AppColors.textSecondary),
                   ),
-                  if (c.status == RentalContractStatus.signed ||
+                  if (c.status == RentalContractStatus.signed) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryLight,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Text(
+                        'Đã tải bản hợp đồng ký. Đang chờ Quản lý kiểm tra và duyệt bản ký để mở bước đặt cọc.',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primaryDark,
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (c.status == RentalContractStatus.pendingDeposit ||
                       c.status == RentalContractStatus.preparing ||
                       c.status == RentalContractStatus.partiallyDelivered ||
                       c.status == RentalContractStatus.delivered)
                     if (c.depositRequiredAmount > c.depositPaidAmount) ...[
                       const SizedBox(height: AppSpacing.sm),
-                      OutlinedButton.icon(
-                        onPressed: () async {
-                          final paid = await VnpayQrSheet.open(
-                            context,
-                            api: PaymentApi(context.read<ApiClient>()),
-                            contractId: c.id,
-                            title: 'Đặt cọc ${c.contractCode}',
-                            targetType: PaymentTargetType.deposit,
-                          );
-                          if (paid && mounted) _load();
-                        },
-                        icon: const Icon(Icons.qr_code_2_rounded, size: 18),
-                        label: const Text('Tạo mã QR VNPAY thu cọc'),
-                      ),
+                      _buildSalesDepositPanel(c),
                     ],
                 ],
               ),
@@ -673,26 +883,34 @@ class _Section extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
+    return Material(
+      color: AppColors.surface,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-        border: Border.all(color: AppColors.border),
+        side: const BorderSide(color: AppColors.border),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (title != null) ...[
-            Text(
-              title!,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-          ],
-          child,
-        ],
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        width: double.infinity,
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (title != null) ...[
+                Text(
+                  title!,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+              ],
+              child,
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -780,14 +998,11 @@ class _ImageTile extends StatelessWidget {
     return InkWell(
       onTap: url == null
           ? null
-          : () => showDialog<void>(
-              context: context,
-              builder: (_) => Dialog(
-                insetPadding: const EdgeInsets.all(AppSpacing.lg),
-                child: InteractiveViewer(
-                  child: CachedNetworkImage(imageUrl: url!, cacheKey: cacheKey),
-                ),
-              ),
+          : () => MediaViewerGallery.openImageViewer(
+              context,
+              url!,
+              title: label,
+              cacheKey: cacheKey,
             ),
       borderRadius: BorderRadius.circular(AppSpacing.borderRadius),
       child: Container(

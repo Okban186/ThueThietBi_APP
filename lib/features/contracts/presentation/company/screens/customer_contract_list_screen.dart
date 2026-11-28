@@ -29,6 +29,7 @@ enum _ContractFilter {
     all => true,
     active => const {
       RentalContractStatus.signed,
+      RentalContractStatus.pendingDeposit,
       RentalContractStatus.preparing,
       RentalContractStatus.partiallyDelivered,
       RentalContractStatus.delivered,

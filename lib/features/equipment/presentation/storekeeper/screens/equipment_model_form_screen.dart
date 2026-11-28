@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -7,6 +8,7 @@ import 'package:thuethietbi_app/core/network/api_error_message.dart';
 import 'package:thuethietbi_app/core/theme/app_colors.dart';
 import 'package:thuethietbi_app/features/equipment/data/models/pending_model_image.dart';
 import 'package:thuethietbi_app/features/equipment/presentation/providers/storekeeper_equipment_provider.dart';
+import 'package:thuethietbi_app/features/equipment/presentation/storekeeper/widgets/model_excel_import_sheet.dart';
 
 class EquipmentModelFormScreen extends StatefulWidget {
   const EquipmentModelFormScreen({
@@ -57,6 +59,8 @@ class _EquipmentModelFormScreenState extends State<EquipmentModelFormScreen> {
 
   String? _savedModelId;
   bool _saving = false;
+  bool _codeManuallyEdited = false;
+  late int _randomSuffix;
 
   bool get _isEdit => widget.existingModel != null;
   bool get _hasFailedImages =>
@@ -65,6 +69,8 @@ class _EquipmentModelFormScreenState extends State<EquipmentModelFormScreen> {
   @override
   void initState() {
     super.initState();
+    _randomSuffix = 100 + Random().nextInt(900);
+
     if (widget.provider.categories.isEmpty) {
       widget.provider.loadMetadata().then((_) {
         if (mounted) setState(() {});
@@ -104,6 +110,12 @@ class _EquipmentModelFormScreenState extends State<EquipmentModelFormScreen> {
     for (final c in (m?['categories'] as List<dynamic>? ?? const [])) {
       _selectedCategoryIds.add(c['id'] as String);
     }
+
+    if (!_isEdit) {
+      _mfgCtrl.addListener(_autoSyncCode);
+      _modelNumCtrl.addListener(_autoSyncCode);
+      _nameCtrl.addListener(_autoSyncCode);
+    }
   }
 
   @override
@@ -119,6 +131,80 @@ class _EquipmentModelFormScreenState extends State<EquipmentModelFormScreen> {
     _descCtrl.dispose();
     _specsCtrl.dispose();
     super.dispose();
+  }
+
+  static String _sanitizeToken(String input) {
+    const withDia =
+        'àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ'
+        'ÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ';
+    const withoutDia =
+        'aaaaaaaaaaaaaaaaaeeeeeeeeeeeiiiiiooooooooooooooooouuuuuuuuuuuyyyyyd'
+        'AAAAAAAAAAAAAAAAAEEEEEEEEEEEIIIIIOOOOOOOOOOOOOOOOOUUUUUUUUUUUYYYYYD';
+
+    var s = input.trim();
+    for (var i = 0; i < withDia.length; i++) {
+      s = s.replaceAll(withDia[i], withoutDia[i]);
+    }
+    s = s.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]+'), '-');
+    s = s.replaceAll(RegExp(r'^-+|-+$'), '');
+    return s;
+  }
+
+  void _autoSyncCode({bool force = false}) {
+    if (_isEdit || (_codeManuallyEdited && !force)) return;
+
+    final mfg = _sanitizeToken(_mfgCtrl.text);
+    final mod = _sanitizeToken(_modelNumCtrl.text);
+    final fallback = _sanitizeToken(_nameCtrl.text);
+
+    final parts = <String>[
+      if (mfg.isNotEmpty) mfg.length > 10 ? mfg.substring(0, 10) : mfg,
+      if (mod.isNotEmpty) mod.length > 12 ? mod.substring(0, 12) : mod,
+    ];
+    if (parts.isEmpty && fallback.isNotEmpty) {
+      parts.add(fallback.length > 12 ? fallback.substring(0, 12) : fallback);
+    }
+
+    if (parts.isEmpty) {
+      if (force) {
+        _codeCtrl.text = 'MODEL-$_randomSuffix';
+      }
+      return;
+    }
+
+    _codeCtrl.text = '${parts.join('-')}-$_randomSuffix';
+  }
+
+  void _regenerateCode() {
+    setState(() {
+      _randomSuffix = 100 + Random().nextInt(900);
+      _codeManuallyEdited = false;
+      _autoSyncCode(force: true);
+    });
+  }
+
+  /// Parse JSON thông số kỹ thuật linh hoạt:
+  /// - Cho phép key bỏ trống value kiểu {"ram": "16GB", "weight": , "power": } → tự chuyển thành ""
+  /// - Cho phép value là null → tự chuyển thành ""
+  /// - Tự loại bỏ dấu phẩy thừa trước dấu } cuối cùng (trailing comma)
+  dynamic _parseFlexibleSpecsJson(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+
+    var sanitized = trimmed.replaceAll(RegExp(r':\s*(?=[,}\r\n])'), ': ""');
+    sanitized = sanitized.replaceAll(RegExp(r',\s*}'), '}');
+
+    final decoded = jsonDecode(sanitized);
+    if (decoded is Map<String, dynamic>) {
+      final normalized = <String, dynamic>{};
+      for (final entry in decoded.entries) {
+        final k = entry.key.trim();
+        if (k.isEmpty) continue;
+        normalized[k] = entry.value ?? '';
+      }
+      return normalized.isEmpty ? null : normalized;
+    }
+    return decoded;
   }
 
   void _finishAndExit() {
@@ -177,13 +263,8 @@ class _EquipmentModelFormScreenState extends State<EquipmentModelFormScreen> {
   }
 
   Map<String, dynamic> _buildPayload() {
-    dynamic specsJson;
-    if (_specsCtrl.text.trim().isNotEmpty) {
-      specsJson = jsonDecode(_specsCtrl.text.trim());
-    }
-
     return {
-      'code': _codeCtrl.text.trim(),
+      'code': _codeCtrl.text.trim().toUpperCase(),
       'name': _nameCtrl.text.trim(),
       'manufacturer': _mfgCtrl.text.trim().isEmpty
           ? null
@@ -199,7 +280,7 @@ class _EquipmentModelFormScreenState extends State<EquipmentModelFormScreen> {
       'description': _descCtrl.text.trim().isEmpty
           ? null
           : _descCtrl.text.trim(),
-      'specifications': specsJson,
+      'specifications': _parseFlexibleSpecsJson(_specsCtrl.text),
       'categoryIds': _selectedCategoryIds.toList(),
     };
   }
@@ -209,7 +290,6 @@ class _EquipmentModelFormScreenState extends State<EquipmentModelFormScreen> {
     setState(() => _saving = true);
 
     try {
-      // 1. Tạo hoặc cập nhật model (không tạo trùng nếu đã lưu ở lần bấm trước)
       final payload = _buildPayload();
       if (_savedModelId == null) {
         final created = await widget.provider.api.createModel(
@@ -220,13 +300,11 @@ class _EquipmentModelFormScreenState extends State<EquipmentModelFormScreen> {
         await widget.provider.api.updateModel(_savedModelId!, payload);
       }
 
-      // 2. Upload & Confirm các ảnh chưa thành công
       final allImagesOk = await widget.provider.api.uploadAndConfirmModelImages(
         modelId: _savedModelId!,
         items: _pendingImages,
       );
 
-      // Luôn reload danh sách vì model & các ảnh hợp lệ đã lưu trên BE
       await widget.provider.loadModels();
 
       if (!mounted) return;
@@ -234,7 +312,6 @@ class _EquipmentModelFormScreenState extends State<EquipmentModelFormScreen> {
       if (allImagesOk) {
         Navigator.pop(context, true);
       } else {
-        // Có ảnh lỗi -> ở lại trang để highlight ảnh lỗi
         setState(() {});
       }
     } catch (e) {
@@ -242,37 +319,15 @@ class _EquipmentModelFormScreenState extends State<EquipmentModelFormScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            apiErrorMessage(e, fallback: 'Không thể lưu model thiết bị.'),
+            apiErrorMessage(
+              e,
+              fallback: 'Không thể lưu model thiết bị.',
+            ),
           ),
         ),
       );
     } finally {
       if (mounted) setState(() => _saving = false);
-    }
-  }
-
-  Future<void> _setPrimaryExistingMedia(Map<String, dynamic> media) async {
-    if (_savedModelId == null) return;
-    try {
-      await widget.provider.api.setPrimaryMedia(
-        _savedModelId!,
-        media['id'] as String,
-      );
-      setState(() {
-        for (final item in _existingMedia) {
-          item['isPrimary'] = item['id'] == media['id'];
-        }
-      });
-      await widget.provider.loadModels();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            apiErrorMessage(e, fallback: 'Không đặt được ảnh chính.'),
-          ),
-        ),
-      );
     }
   }
 
@@ -334,29 +389,6 @@ class _EquipmentModelFormScreenState extends State<EquipmentModelFormScreen> {
                       ),
                     ),
                   ),
-                  if (media['isPrimary'] == true)
-                    Positioned(
-                      left: 4,
-                      bottom: 4,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Text(
-                          'Chính',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
                 ],
               );
             },
@@ -501,6 +533,24 @@ class _EquipmentModelFormScreenState extends State<EquipmentModelFormScreen> {
           title: Text(
             _isEdit ? 'Cập nhật Model thiết bị' : 'Tạo Model thiết bị',
           ),
+          actions: [
+            if (!_isEdit)
+              TextButton.icon(
+                onPressed: _saving
+                    ? null
+                    : () async {
+                        final ok = await ModelExcelImportSheet.open(
+                          context,
+                          widget.provider,
+                        );
+                        if (ok == true && mounted) {
+                          Navigator.pop(context, true);
+                        }
+                      },
+                icon: const Icon(Icons.table_view_rounded, size: 18),
+                label: const Text('Import Excel'),
+              ),
+          ],
         ),
         body: Form(
           key: _formKey,
@@ -508,23 +558,57 @@ class _EquipmentModelFormScreenState extends State<EquipmentModelFormScreen> {
             padding: const EdgeInsets.all(16),
             children: [
               _field(
-                _codeCtrl,
-                'Mã Model *',
-                hint: 'VD: TB-RICOH-MP305',
-                required: true,
-              ),
-              _field(
                 _nameCtrl,
                 'Tên Model thiết bị *',
-                hint: 'VD: Máy photocopy Ricoh MP 305',
+                hint: 'VD: Máy quay Sony FX3 Cinema Line',
                 required: true,
               ),
               Row(
                 children: [
-                  Expanded(child: _field(_mfgCtrl, 'Hãng sản xuất')),
+                  Expanded(
+                    child: _field(
+                      _mfgCtrl,
+                      'Hãng sản xuất *',
+                      hint: 'VD: Sony',
+                      required: true,
+                    ),
+                  ),
                   const SizedBox(width: 12),
-                  Expanded(child: _field(_modelNumCtrl, 'Số hiệu Model')),
+                  Expanded(
+                    child: _field(
+                      _modelNumCtrl,
+                      'Số hiệu Model *',
+                      hint: 'VD: FX3',
+                      required: true,
+                    ),
+                  ),
                 ],
+              ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: TextFormField(
+                  controller: _codeCtrl,
+                  onChanged: (_) => _codeManuallyEdited = true,
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Mã Model không được để trống'
+                      : null,
+                  decoration: InputDecoration(
+                    labelText: 'Mã Model * (Tự sinh & có thể sửa)',
+                    hintText: 'VD: SONY-FX3-482',
+                    filled: true,
+                    fillColor: AppColors.surface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    suffixIcon: _isEdit
+                        ? null
+                        : IconButton(
+                            tooltip: 'Sinh lại mã ngẫu nhiên',
+                            onPressed: _regenerateCode,
+                            icon: const Icon(Icons.autorenew_rounded),
+                          ),
+                  ),
+                ),
               ),
               Row(
                 children: [
@@ -614,10 +698,22 @@ class _EquipmentModelFormScreenState extends State<EquipmentModelFormScreen> {
                   minLines: 6,
                   maxLines: 12,
                   style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return null;
+                    try {
+                      _parseFlexibleSpecsJson(v);
+                      return null;
+                    } catch (_) {
+                      return 'JSON thông số kỹ thuật chưa đúng cú pháp (VD: {"ram": "16GB", "weight": ""}).';
+                    }
+                  },
                   decoration: InputDecoration(
                     labelText: 'Thông số kỹ thuật (JSON)',
+                    helperText:
+                        'Hỗ trợ key bỏ trống value (tự gán mặc định "").',
                     alignLabelWithHint: true,
-                    hintText: '{\n  "ram": "16GB",\n  "power": "220V",\n  "weight": "12kg"\n}',
+                    hintText:
+                        '{\n  "ram": "16GB",\n  "power": "220V",\n  "weight": ""\n}',
                     filled: true,
                     fillColor: AppColors.surface,
                     border: OutlineInputBorder(
@@ -668,20 +764,6 @@ class _EquipmentModelFormScreenState extends State<EquipmentModelFormScreen> {
                         style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
               ),
-
-              if (_hasFailedImages) ...[
-                const SizedBox(height: 10),
-                OutlinedButton(
-                  onPressed: _saving ? null : _finishAndExit,
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(48),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: const Text('Bỏ qua ảnh lỗi & Hoàn tất'),
-                ),
-              ],
             ],
           ),
         ),
@@ -693,160 +775,44 @@ class _EquipmentModelFormScreenState extends State<EquipmentModelFormScreen> {
     final failedCount = _pendingImages
         .where((e) => e.status == PendingImageStatus.failed)
         .length;
-    final successCount = _pendingImages
-        .where((e) => e.status == PendingImageStatus.uploaded)
-        .length;
-
     return Container(
       margin: const EdgeInsets.only(top: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppColors.errorLight,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.error.withValues(alpha: 0.4)),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(
-            Icons.error_outline_rounded,
-            color: AppColors.error,
-            size: 20,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Model${successCount > 0 ? ' và $successCount ảnh hợp lệ' : ''} đã được lưu. '
-              'Có $failedCount ảnh bị lỗi (đánh dấu đỏ bên dưới). '
-              'Bạn có thể đổi ảnh để tải lại hoặc bấm "Bỏ qua ảnh lỗi & Hoàn tất".',
-              style: const TextStyle(
-                color: AppColors.error,
-                fontSize: 12.5,
-                height: 1.35,
-              ),
-            ),
-          ),
-        ],
+      child: Text(
+        'Model đã được lưu. Có $failedCount ảnh bị lỗi bên dưới.',
+        style: const TextStyle(color: AppColors.error, fontSize: 12.5),
       ),
     );
   }
 
   Widget _buildPendingImagesList() {
     if (_pendingImages.isEmpty) return const SizedBox.shrink();
-
     return Column(
       children: [
         const SizedBox(height: 12),
         for (var i = 0; i < _pendingImages.length; i++)
-          Builder(
-            builder: (_) {
-              final item = _pendingImages[i];
-              final isFailed = item.status == PendingImageStatus.failed;
-              final isDone = item.status == PendingImageStatus.uploaded;
-
-              return Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: isFailed
-                      ? AppColors.errorLight.withValues(alpha: 0.45)
-                      : AppColors.surface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isFailed
-                        ? AppColors.error
-                        : (isDone ? AppColors.success : AppColors.border),
-                    width: isFailed ? 1.5 : 1,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.file(
-                        File(item.filePath),
-                        width: 52,
-                        height: 52,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const Icon(
-                          Icons.broken_image,
-                          size: 40,
-                          color: AppColors.error,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            item.fileName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 2),
-                          if (isFailed)
-                            Text(
-                              item.errorMessage ??
-                                  'Ảnh bị lỗi, vui lòng chọn ảnh khác.',
-                              style: const TextStyle(
-                                color: AppColors.error,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            )
-                          else if (isDone)
-                            const Text(
-                              'Đã tải lên thành công',
-                              style: TextStyle(
-                                color: AppColors.success,
-                                fontSize: 12,
-                              ),
-                            )
-                          else
-                            const Text(
-                              'Chờ tải lên',
-                              style: TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 12,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    if (isFailed)
-                      TextButton(
-                        onPressed: _saving
-                            ? null
-                            : () async {
-                                final replacement = await ImagePicker()
-                                    .pickImage(
-                                      source: ImageSource.gallery,
-                                      imageQuality: 85,
-                                    );
-                                if (replacement == null) return;
-                                setState(() {
-                                  item.filePath = replacement.path;
-                                  item.fileName = replacement.name;
-                                  item.status = PendingImageStatus.pending;
-                                  item.errorMessage = null;
-                                });
-                              },
-                        child: const Text('Đổi ảnh'),
-                      ),
-                    if (!isDone)
-                      IconButton(
-                        icon: const Icon(Icons.close_rounded, size: 20),
-                        onPressed: _saving
-                            ? null
-                            : () => setState(() => _pendingImages.removeAt(i)),
-                      ),
-                  ],
-                ),
-              );
-            },
+          ListTile(
+            dense: true,
+            leading: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.file(
+                File(_pendingImages[i].filePath),
+                width: 44,
+                height: 44,
+                fit: BoxFit.cover,
+              ),
+            ),
+            title: Text(_pendingImages[i].fileName),
+            trailing: IconButton(
+              icon: const Icon(Icons.close_rounded, size: 18),
+              onPressed: _saving
+                  ? null
+                  : () => setState(() => _pendingImages.removeAt(i)),
+            ),
           ),
       ],
     );

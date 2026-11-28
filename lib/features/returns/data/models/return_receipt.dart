@@ -64,7 +64,7 @@ class OutstandingEquipment {
       );
 }
 
-/// Phiếu nhận trả (danh sách).
+/// Phiếu nhận trả / thu hồi (danh sách).
 class ReturnReceipt {
   const ReturnReceipt({
     required this.id,
@@ -74,20 +74,37 @@ class ReturnReceipt {
     required this.companyName,
     required this.returnedAt,
     required this.status,
+    required this.returnType,
     required this.returnedCount,
     required this.missingCount,
     required this.damagedCount,
     this.receivedByName,
     this.note,
+    this.assignedStorekeeperId,
+    this.assignedStorekeeperName,
   });
 
   final String id, returnCode, rentalContractId, contractCode, companyName;
   final DateTime returnedAt;
   final String status;
-  final String? receivedByName, note;
+
+  /// NORMAL | CANCELLED_SHIPMENT | DEFECTIVE_ON_DELIVERY | INCIDENT_RETURN
+  final String returnType;
+  final String? receivedByName,
+      note,
+      assignedStorekeeperId,
+      assignedStorekeeperName;
   final int returnedCount, missingCount, damagedCount;
 
   int get totalCount => returnedCount + missingCount;
+  bool get isProcessing => status.toUpperCase() == 'PROCESSING';
+  bool get isClaimed =>
+      assignedStorekeeperId != null && assignedStorekeeperId!.isNotEmpty;
+  bool get isCancelledShipment =>
+      returnType.toUpperCase() == 'CANCELLED_SHIPMENT';
+  bool get isDefectiveOnDelivery =>
+      returnType.toUpperCase() == 'DEFECTIVE_ON_DELIVERY';
+  bool get isIncidentReturn => returnType.toUpperCase() == 'INCIDENT_RETURN';
 
   factory ReturnReceipt.fromJson(Map<String, dynamic> json) => ReturnReceipt(
     id: json['id'] as String,
@@ -98,10 +115,13 @@ class ReturnReceipt {
     returnedAt: DateTime.parse(json['returnedAt'] as String).toLocal(),
     receivedByName: json['receivedByName'] as String?,
     status: json['status'] as String,
+    returnType: (json['returnType'] as String?) ?? 'NORMAL',
     note: json['note'] as String?,
     returnedCount: (json['returnedCount'] as num).toInt(),
     missingCount: (json['missingCount'] as num).toInt(),
     damagedCount: (json['damagedCount'] as num).toInt(),
+    assignedStorekeeperId: json['assignedStorekeeperId'] as String?,
+    assignedStorekeeperName: json['assignedStorekeeperName'] as String?,
   );
 }
 
@@ -196,7 +216,7 @@ enum ReturnCheck {
   final String? condition;
 }
 
-/// Một dòng gửi lên khi lập phiếu nhận trả.
+/// Một dòng gửi lên khi lập hoặc xác nhận phiếu nhận trả.
 class ReturnCheckInput {
   const ReturnCheckInput({
     required this.equipmentId,

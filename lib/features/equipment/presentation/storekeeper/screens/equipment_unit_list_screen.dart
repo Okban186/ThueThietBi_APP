@@ -7,6 +7,7 @@ import 'package:thuethietbi_app/core/widgets/app_empty_view.dart';
 import 'package:thuethietbi_app/core/widgets/app_filter_chip.dart';
 import 'package:thuethietbi_app/features/equipment/presentation/providers/storekeeper_equipment_provider.dart';
 
+import 'equipment_history_screen.dart';
 import 'equipment_unit_form_screen.dart';
 
 class EquipmentUnitListScreen extends StatefulWidget {
@@ -154,76 +155,102 @@ class _EquipmentUnitListScreenState extends State<EquipmentUnitListScreen> {
                           st != 'RENTED' &&
                           st != 'RESERVED';
 
-                      return Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
+                      return Material(
+                        color: AppColors.surface,
+                        shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppColors.border),
+                          side: const BorderSide(color: AppColors.border),
                         ),
-                        child: Row(
-                          children: [
-                            const CircleAvatar(
-                              backgroundColor: AppColors.primaryLight,
-                              child: Icon(
-                                Icons.qr_code_2_rounded,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    eq['serialNumber'] as String,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 14.5,
-                                      color: AppColors.textPrimary,
-                                    ),
+                        clipBehavior: Clip.antiAlias,
+                        child: InkWell(
+                          onTap: () => EquipmentHistoryScreen.open(
+                            ctx,
+                            api: provider.api,
+                            equipmentId: eq['id'] as String,
+                            serialHint: eq['serialNumber'] as String?,
+                            onEditTap: canEdit
+                                ? () => EquipmentUnitFormScreen.open(
+                                    ctx,
+                                    provider,
+                                    existingEquipment: eq,
+                                  )
+                                : null,
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: Row(
+                              children: [
+                                const CircleAvatar(
+                                  backgroundColor: AppColors.primaryLight,
+                                  child: Icon(
+                                    Icons.qr_code_2_rounded,
+                                    color: AppColors.primary,
                                   ),
-                                  Text(
-                                    '${eq['equipmentModelName']} • ${eq['warehouseName']}',
-                                    style: const TextStyle(
-                                      fontSize: 12.5,
-                                      color: AppColors.textSecondary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Wrap(
-                                    spacing: 8,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      _badge(
-                                        st,
-                                        st == 'AVAILABLE'
-                                            ? AppColors.success
-                                            : (st == 'DAMAGED'
-                                                  ? AppColors.error
-                                                  : AppColors.warning),
+                                      Text(
+                                        eq['serialNumber'] as String,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 14.5,
+                                          color: AppColors.textPrimary,
+                                        ),
                                       ),
-                                      _badge(
-                                        'Tình trạng: ${eq['condition']}',
-                                        AppColors.info,
+                                      Text(
+                                        '${eq['equipmentModelName']} • ${eq['warehouseName']}',
+                                        style: const TextStyle(
+                                          fontSize: 12.5,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 4,
+                                        children: [
+                                          _badge(
+                                            st,
+                                            st == 'AVAILABLE'
+                                                ? AppColors.success
+                                                : (st == 'DAMAGED'
+                                                      ? AppColors.error
+                                                      : AppColors.warning),
+                                          ),
+                                          _badge(
+                                            'Tình trạng: ${eq['condition']}',
+                                            AppColors.info,
+                                          ),
+                                          _badge(
+                                            'Xem lịch sử sửa chữa',
+                                            AppColors.primary,
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
-                                ],
-                              ),
+                                ),
+                                if (canEdit)
+                                  IconButton(
+                                    tooltip: 'Sửa thiết bị',
+                                    icon: const Icon(
+                                      Icons.edit_outlined,
+                                      color: AppColors.primary,
+                                    ),
+                                    onPressed: () =>
+                                        EquipmentUnitFormScreen.open(
+                                          ctx,
+                                          provider,
+                                          existingEquipment: eq,
+                                        ),
+                                  ),
+                              ],
                             ),
-                            if (canEdit)
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.edit_outlined,
-                                  color: AppColors.primary,
-                                ),
-                                onPressed: () => EquipmentUnitFormScreen.open(
-                                  ctx,
-                                  provider,
-                                  existingEquipment: eq,
-                                ),
-                              ),
-                          ],
+                          ),
                         ),
                       );
                     },

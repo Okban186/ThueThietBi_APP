@@ -162,7 +162,7 @@ class _CustomerContractDetailScreenState
   }
 
   bool _canPayContract(RentalContractStatus status) => switch (status) {
-    RentalContractStatus.signed ||
+    RentalContractStatus.pendingDeposit ||
     RentalContractStatus.preparing ||
     RentalContractStatus.partiallyDelivered ||
     RentalContractStatus.delivered ||
@@ -336,20 +336,21 @@ class _CustomerContractDetailScreenState
             ),
           ),
 
-          if (_statusHint(c.status) case final hint?) ...[
+          if (_statusHint(c) case final hint?) ...[
             const SizedBox(height: AppSpacing.md),
             _Banner(text: hint),
           ],
 
-          // 2. Lịch / Các đợt thanh toán tiền thuê
+          // 2. Thanh toán tiền hợp đồng (Ngắn hạn: 100% + ship | Dài hạn: chia từng đợt 30 ngày)
           if (billing != null && billing.installments.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.lg),
             _Section(
-              title:
-                  'Các đợt thanh toán tiền thuê (${billing.installments.length} đợt)',
+              title: c.rentalType == RentalType.shortTerm
+                  ? 'Thanh toán tiền hợp đồng ngắn hạn'
+                  : 'Các đợt thanh toán tiền thuê (${billing.installments.length} đợt)',
               subtitle: c.rentalType == RentalType.longTerm
-                  ? 'Hợp đồng dài hạn · Chu kỳ 30 ngày/đợt (đợt 1 gộp phí vận chuyển).'
-                  : 'Hợp đồng ngắn hạn · Thanh toán đủ trong 1 đợt.',
+                  ? 'Hợp đồng dài hạn · Thanh toán theo đợt 30 ngày (đợt 1 gộp phí vận chuyển nếu có).'
+                  : 'Hợp đồng ngắn hạn · Thanh toán trọn gói 100% giá trị hợp đồng (+ phí vận chuyển nếu có).',
               child: Column(
                 children: [
                   for (var i = 0; i < billing.installments.length; i++) ...[
@@ -357,6 +358,9 @@ class _CustomerContractDetailScreenState
                     _InstallmentCard(
                       item: billing.installments[i],
                       canPay: canPay,
+                      payButtonLabel: c.rentalType == RentalType.shortTerm
+                          ? 'Thanh toán HĐ'
+                          : 'Thanh toán đợt ${billing.installments[i].installmentNumber}',
                       onPayQr: () => _payWithVnpay(
                         title:
                             '${billing.installments[i].description} · ${c.contractCode}',
@@ -365,6 +369,24 @@ class _CustomerContractDetailScreenState
                       ),
                     ),
                   ],
+                ],
+              ),
+            ),
+          ] else if (canPay && billing == null) ...[
+            const SizedBox(height: AppSpacing.lg),
+            _Section(
+              title: c.rentalType == RentalType.shortTerm
+                  ? 'Thanh toán tiền hợp đồng ngắn hạn'
+                  : 'Các đợt thanh toán tiền thuê',
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Không tải được thông tin thanh toán của hợp đồng.',
+                      style: TextStyle(color: AppColors.textSecondary),
+                    ),
+                  ),
+                  TextButton(onPressed: _load, child: const Text('Tải lại')),
                 ],
               ),
             ),
@@ -619,11 +641,13 @@ class _CustomerContractDetailScreenState
   }
 
   /// Gợi ý việc khách cần làm / đang chờ theo trạng thái hợp đồng.
-  String? _statusHint(RentalContractStatus status) => switch (status) {
+  String? _statusHint(RentalContract c) => switch (c.status) {
     RentalContractStatus.pendingSignature =>
       'Hợp đồng đã được duyệt. Vui lòng xem bản PDF, ký và gửi lại cho nhân viên kinh doanh.',
     RentalContractStatus.signed =>
-      'Hợp đồng đã ký. Vui lòng hoàn tất tiền đặt cọc để kho duyệt xuất và bàn giao thiết bị.',
+      'Bản hợp đồng đã ký đang chờ Quản lý kiểm tra và phê duyệt trước khi mở thanh toán tiền đặt cọc.',
+    RentalContractStatus.pendingDeposit =>
+      'Quản lý đã duyệt bản ký! Vui lòng hoàn tất tiền đặt cọc trước ngày ${DateFormatter.date(c.depositDeadline)} (trước ngày bắt đầu thuê 02 ngày) để bắt đầu chuẩn bị giao thiết bị. Quá thời hạn trên hợp đồng sẽ tự động hủy.',
     RentalContractStatus.preparing =>
       'Kho đang chuẩn bị thiết bị để giao cho quý khách.',
     RentalContractStatus.partiallyDelivered =>
@@ -698,11 +722,13 @@ class _InstallmentCard extends StatelessWidget {
     required this.item,
     required this.canPay,
     required this.onPayQr,
+    this.payButtonLabel = 'Thanh toán',
   });
 
   final ContractInstallment item;
   final bool canPay;
   final VoidCallback onPayQr;
+  final String payButtonLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -798,7 +824,7 @@ class _InstallmentCard extends StatelessWidget {
                 FilledButton.tonalIcon(
                   onPressed: onPayQr,
                   icon: const Icon(Icons.qr_code_2_rounded, size: 18),
-                  label: const Text('Thanh toán'),
+                  label: Text(payButtonLabel),
                 ),
             ],
           ),

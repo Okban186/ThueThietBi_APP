@@ -3,6 +3,7 @@ import 'package:provider/single_child_widget.dart';
 import 'package:thuethietbi_app/core/config/app_config.dart';
 
 import '../../features/auth/data/datasources/auth_api.dart';
+import '../../features/notifications/data/datasources/notification_api.dart';
 import '../../features/notifications/data/providers/notification_provider.dart';
 import '../auth/auth_session.dart';
 import '../network/api_client.dart';
@@ -44,11 +45,14 @@ Future<List<SingleChildWidget>> createAppProviders() async {
     }
   }
 
-  // Khởi tạo quản lý thông báo.
-  final notificationProvider = NotificationProvider();
-
-  // Khởi tạo dịch vụ Firebase Notification.
-  final notificationService = NotificationService(notificationProvider);
+  // Khởi tạo API, Provider & Firebase Notification Service.
+  final notificationApi = NotificationApi(apiClient);
+  final notificationProvider = NotificationProvider(notificationApi);
+  final notificationService = NotificationService(
+    notificationProvider,
+    notificationApi,
+    authSession,
+  );
 
   return [
     ChangeNotifierProvider<AuthSession>.value(value: authSession),
@@ -56,6 +60,8 @@ Future<List<SingleChildWidget>> createAppProviders() async {
     Provider<ApiClient>.value(value: apiClient),
 
     Provider<AuthApi>.value(value: authApi),
+
+    Provider<NotificationApi>.value(value: notificationApi),
 
     ChangeNotifierProvider<NotificationProvider>.value(
       value: notificationProvider,

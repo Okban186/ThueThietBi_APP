@@ -19,6 +19,7 @@ class ContractStatusBadge extends StatelessWidget {
       ),
       RentalContractStatus.pendingApproval ||
       RentalContractStatus.pendingSignature ||
+      RentalContractStatus.pendingDeposit ||
       RentalContractStatus.cancellationRequested => (
         AppColors.warning,
         AppColors.warningLight,
@@ -26,7 +27,11 @@ class ContractStatusBadge extends StatelessWidget {
       RentalContractStatus.rejected ||
       RentalContractStatus.cancelled ||
       RentalContractStatus.expired => (AppColors.error, AppColors.errorLight),
-      RentalContractStatus.signed || RentalContractStatus.completed => (
+      RentalContractStatus.signed => (
+        AppColors.primary,
+        AppColors.primaryLight,
+      ),
+      RentalContractStatus.completed => (
         AppColors.success,
         AppColors.successLight,
       ),

@@ -307,12 +307,14 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
     });
 
     try {
-      final quote = await context.read<RentalContractProvider>().getShippingQuote(
-        reservationId: widget.isEditing ? null : widget.reservationId,
-        contractId: widget.isEditing ? widget.contract!.id : null,
-        providedBy: _deliveryProvider,
-        deliveryAddress: address.isEmpty ? null : address,
-      );
+      final quote = await context
+          .read<RentalContractProvider>()
+          .getShippingQuote(
+            reservationId: widget.isEditing ? null : widget.reservationId,
+            contractId: widget.isEditing ? widget.contract!.id : null,
+            providedBy: _deliveryProvider,
+            deliveryAddress: address.isEmpty ? null : address,
+          );
       if (!mounted) return;
       setState(() {
         _shippingQuote = quote;
@@ -600,8 +602,7 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
             const SizedBox(height: AppSpacing.lg),
             _Section(
               title: 'Thông tin thuê & vận chuyển',
-              subtitle:
-                  'Phí vận chuyển do hệ thống tự tính theo khoảng cách (2 lượt) và ưu đãi thuê nhiều.',
+              subtitle: 'Phí vận chuyển do hệ thống tự tính theo khoảng cách (2 lượt) và ưu đãi thuê nhiều.',
               children: [
                 _ReadOnlyRow(
                   icon: Icons.date_range_outlined,
@@ -650,13 +651,15 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
                 TextFormField(
                   controller: _deliveryAddressController,
                   decoration: InputDecoration(
-                    labelText: _deliveryProvider == ServiceProvider.rentalCompany
+                    labelText:
+                        _deliveryProvider == ServiceProvider.rentalCompany
                         ? 'Địa chỉ giao hàng *'
                         : 'Địa chỉ giao hàng (không bắt buộc)',
-                    hintText: 'VD: 123 Nguyễn Văn Linh, Quận 7, TP. Hồ Chí Minh',
+                    hintText:
+                        'VD: 123 Nguyễn Văn Linh, Quận 7, TP. Hồ Chí Minh',
                     prefixIcon: const Icon(Icons.location_on_outlined),
-                    suffixIcon: _deliveryProvider ==
-                            ServiceProvider.rentalCompany
+                    suffixIcon:
+                        _deliveryProvider == ServiceProvider.rentalCompany
                         ? IconButton(
                             tooltip: 'Tính phí vận chuyển',
                             onPressed: _isQuotingShipping
@@ -951,8 +954,7 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
           borderRadius: BorderRadius.circular(AppSpacing.borderRadius),
         ),
         child: Text(
-          _shippingPolicySummary ??
-              'Nhập địa chỉ giao hàng rồi bấm biểu tượng lộ trình để hệ thống tự tính phí vận chuyển.',
+          _shippingPolicySummary ?? 'Nhập địa chỉ giao hàng rồi bấm biểu tượng lộ trình để hệ thống tự tính phí vận chuyển.',
           style: const TextStyle(
             color: AppColors.info,
             fontSize: 12.5,
@@ -991,7 +993,9 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
                 ),
               ),
               Text(
-                q.finalFee == 0 ? 'Miễn phí' : CurrencyFormatter.vnd(q.finalFee),
+                q.finalFee == 0
+                    ? 'Miễn phí'
+                    : CurrencyFormatter.vnd(q.finalFee),
                 style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
@@ -1138,11 +1142,7 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
 }
 
 class _Section extends StatelessWidget {
-  const _Section({
-    required this.title,
-    required this.children,
-    this.subtitle,
-  });
+  const _Section({required this.title, required this.children, this.subtitle});
 
   final String title;
   final String? subtitle;

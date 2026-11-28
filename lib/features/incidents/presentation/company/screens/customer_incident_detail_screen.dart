@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:thuethietbi_app/core/network/api_error_message.dart';
 import 'package:thuethietbi_app/core/theme/app_colors.dart';
 import 'package:thuethietbi_app/core/theme/app_spacing.dart';
+import 'package:thuethietbi_app/shared/widgets/media/media_viewer_gallery.dart';
 import 'package:thuethietbi_app/core/widgets/app_empty_view.dart';
 import 'package:thuethietbi_app/shared/formatters/date_formatter.dart';
 
@@ -272,20 +273,14 @@ class _CustomerIncidentDetailScreenState
             const SizedBox(height: AppSpacing.lg),
             _Section(
               title: 'Ảnh (${detail.attachments.length})',
-              child: Wrap(
-                spacing: AppSpacing.sm,
-                runSpacing: AppSpacing.sm,
-                children: [
-                  for (final a in detail.attachments)
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: CachedNetworkImage(
-                        imageUrl: a.url,
-                        cacheKey: a.storageFileId,
-                        width: 96,
-                        height: 96,
-                        fit: BoxFit.cover,
-                      ),
+              child: MediaViewerGallery(
+                thumbSize: 96,
+                items: [
+                  for (var idx = 0; idx < detail.attachments.length; idx++)
+                    GalleryMediaItem(
+                      url: detail.attachments[idx].url,
+                      cacheKey: detail.attachments[idx].storageFileId,
+                      fileName: 'Ảnh sự cố #${idx + 1}',
                     ),
                 ],
               ),

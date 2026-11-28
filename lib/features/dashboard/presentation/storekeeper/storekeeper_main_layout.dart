@@ -15,6 +15,7 @@ import 'package:thuethietbi_app/features/equipment/presentation/storekeeper/scre
 import 'package:thuethietbi_app/features/equipment/presentation/storekeeper/screens/equipment_model_list.dart';
 import 'package:thuethietbi_app/features/equipment/presentation/storekeeper/screens/equipment_unit_form_screen.dart';
 import 'package:thuethietbi_app/features/equipment/presentation/storekeeper/screens/equipment_unit_list_screen.dart';
+import 'package:thuethietbi_app/features/equipment/presentation/storekeeper/widgets/model_excel_import_sheet.dart';
 import 'package:thuethietbi_app/features/equipment/presentation/storekeeper/widgets/quick_import_equipment_sheet.dart';
 import 'package:thuethietbi_app/features/handovers/data/datasources/handover_api.dart';
 import 'package:thuethietbi_app/features/handovers/presentation/storekeeper/screens/handover_home_screen.dart';
@@ -272,11 +273,28 @@ class _StorekeeperMainLayoutState extends State<StorekeeperMainLayout> {
                   style: TextStyle(fontWeight: FontWeight.w600),
                 ),
                 subtitle: const Text(
-                  'Khai báo mã, giá thuê, thông số & hình ảnh',
+                  'Khai báo mã tự sinh, giá thuê, thông số & hình ảnh',
                 ),
                 onTap: () {
                   Navigator.pop(ctx);
                   EquipmentModelFormScreen.open(ctx, _provider);
+                },
+              ),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: AppColors.infoLight,
+                  child: Icon(Icons.table_view_rounded, color: AppColors.info),
+                ),
+                title: const Text(
+                  'Import hàng loạt Model bằng Excel (.xlsx)',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                subtitle: const Text(
+                  'Tải file Excel mẫu và nhập nhiều model cùng lúc',
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  ModelExcelImportSheet.open(ctx, _provider);
                 },
               ),
               ListTile(

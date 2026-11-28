@@ -251,6 +251,14 @@ class _HandoverDetailScreenState extends State<HandoverDetailScreen> {
                   ),
                   const Divider(height: AppSpacing.xl),
                   _InfoRow(
+                    'Loại phiếu',
+                    h.isIncidentReplacement
+                        ? 'Giao máy thay thế sự cố'
+                        : h.isSupplementary
+                        ? 'Giao bù máy lỗi (miễn phí ship)'
+                        : 'Phiếu bàn giao gốc',
+                  ),
+                  _InfoRow(
                     'Ngày giao',
                     DateFormatter.weekdayDate(h.handoverDate),
                   ),
@@ -264,10 +272,23 @@ class _HandoverDetailScreenState extends State<HandoverDetailScreen> {
                   _InfoRow('Địa chỉ giao', detail.deliveryAddress),
                   _InfoRow('Ghi chú giao (HĐ)', detail.deliveryNote),
                   _InfoRow('Ghi chú phiếu', h.note),
-                  _InfoRow('Người soạn', h.createdByName),
+                  _InfoRow('Người tạo phiếu', h.createdByName),
+                  _InfoRow(
+                    'Thủ kho phụ trách',
+                    h.isClaimed
+                        ? (h.assignedStorekeeperName ?? 'Đã tiếp nhận')
+                        : 'Chưa có người tiếp nhận',
+                  ),
                 ],
               ),
             ),
+            if (h.isEditable && !h.isClaimed) ...[
+              const SizedBox(height: AppSpacing.md),
+              const _Banner(
+                text:
+                    'Phiếu bàn giao này chưa có Thủ kho tiếp nhận. Bấm "Tiếp nhận soạn phiếu này" bên dưới để khóa quyền phụ trách (các Thủ kho khác sẽ không thấy phiếu này nữa).',
+              ),
+            ],
             if (h.status == HandoverStatus.pendingApproval) ...[
               const SizedBox(height: AppSpacing.md),
               const _Banner(
@@ -334,9 +355,37 @@ class _HandoverDetailScreenState extends State<HandoverDetailScreen> {
     );
   }
 
+  Future<void> _claim(HandoverDetail detail) async {
+    await _run(
+      () => widget.api.claim(detail.handover.id),
+      'Bạn đã tiếp nhận phụ trách phiếu ${detail.handover.handoverCode}.',
+    );
+  }
+
   Widget? _buildActions(HandoverDetail detail) {
     final h = detail.handover;
     if (!h.isCancellable) return null;
+
+    if (h.isEditable && !h.isClaimed) {
+      return SafeArea(
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: const BoxDecoration(
+            color: AppColors.surface,
+            border: Border(top: BorderSide(color: AppColors.border)),
+          ),
+          child: FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              minimumSize: const Size.fromHeight(48),
+            ),
+            onPressed: _isBusy ? null : () => _claim(detail),
+            icon: const Icon(Icons.assignment_ind_outlined),
+            label: const Text('Tiếp nhận soạn phiếu này'),
+          ),
+        ),
+      );
+    }
 
     return SafeArea(
       child: Container(

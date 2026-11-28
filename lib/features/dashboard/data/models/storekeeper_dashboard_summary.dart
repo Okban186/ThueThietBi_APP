@@ -12,6 +12,16 @@ class StorekeeperDashboardSummary {
     required this.activeWarehousesCount,
     required this.activeCategoriesCount,
     required this.recentEquipments,
+    this.unclaimedHandoversCount = 0,
+    this.myPreparingHandoversCount = 0,
+    this.myPendingApprovalHandoversCount = 0,
+    this.unclaimedReturnsCount = 0,
+    this.myProcessingReturnsCount = 0,
+    this.pendingReplacementsCount = 0,
+    this.approvedReplacementsCount = 0,
+    this.rejectedReplacementsCount = 0,
+    this.waitingDefectiveReturnContractsCount = 0,
+    this.readySupplementaryContractsCount = 0,
   });
 
   const StorekeeperDashboardSummary.empty()
@@ -26,12 +36,31 @@ class StorekeeperDashboardSummary {
       outOfStockModelsCount = 0,
       activeWarehousesCount = 0,
       activeCategoriesCount = 0,
-      recentEquipments = const [];
+      recentEquipments = const [],
+      unclaimedHandoversCount = 0,
+      myPreparingHandoversCount = 0,
+      myPendingApprovalHandoversCount = 0,
+      unclaimedReturnsCount = 0,
+      myProcessingReturnsCount = 0,
+      pendingReplacementsCount = 0,
+      approvedReplacementsCount = 0,
+      rejectedReplacementsCount = 0,
+      waitingDefectiveReturnContractsCount = 0,
+      readySupplementaryContractsCount = 0;
 
   final int totalModels, activeModels, totalEquipments;
   final int availableEquipments, rentedEquipments, reservedEquipments;
   final int maintenanceEquipments, damagedOrLostEquipments;
   final int outOfStockModelsCount, activeWarehousesCount, activeCategoriesCount;
+  final int unclaimedHandoversCount,
+      myPreparingHandoversCount,
+      myPendingApprovalHandoversCount;
+  final int unclaimedReturnsCount, myProcessingReturnsCount;
+  final int pendingReplacementsCount,
+      approvedReplacementsCount,
+      rejectedReplacementsCount;
+  final int waitingDefectiveReturnContractsCount,
+      readySupplementaryContractsCount;
   final List<RecentEquipmentActivity> recentEquipments;
 
   factory StorekeeperDashboardSummary.fromJson(
@@ -56,6 +85,26 @@ class StorekeeperDashboardSummary {
     recentEquipments: (json['recentEquipments'] as List<dynamic>? ?? const [])
         .map((e) => RecentEquipmentActivity.fromJson(e as Map<String, dynamic>))
         .toList(),
+    unclaimedHandoversCount:
+        (json['unclaimedHandoversCount'] as num?)?.toInt() ?? 0,
+    myPreparingHandoversCount:
+        (json['myPreparingHandoversCount'] as num?)?.toInt() ?? 0,
+    myPendingApprovalHandoversCount:
+        (json['myPendingApprovalHandoversCount'] as num?)?.toInt() ?? 0,
+    unclaimedReturnsCount:
+        (json['unclaimedReturnsCount'] as num?)?.toInt() ?? 0,
+    myProcessingReturnsCount:
+        (json['myProcessingReturnsCount'] as num?)?.toInt() ?? 0,
+    pendingReplacementsCount:
+        (json['pendingReplacementsCount'] as num?)?.toInt() ?? 0,
+    approvedReplacementsCount:
+        (json['approvedReplacementsCount'] as num?)?.toInt() ?? 0,
+    rejectedReplacementsCount:
+        (json['rejectedReplacementsCount'] as num?)?.toInt() ?? 0,
+    waitingDefectiveReturnContractsCount:
+        (json['waitingDefectiveReturnContractsCount'] as num?)?.toInt() ?? 0,
+    readySupplementaryContractsCount:
+        (json['readySupplementaryContractsCount'] as num?)?.toInt() ?? 0,
   );
 }
 

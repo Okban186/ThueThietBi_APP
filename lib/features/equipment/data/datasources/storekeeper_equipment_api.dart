@@ -1,6 +1,10 @@
+import 'dart:typed_data';
+
+import 'package:dio/dio.dart';
 import 'package:thuethietbi_app/core/network/api_client.dart';
 import 'package:thuethietbi_app/features/dashboard/data/models/storekeeper_dashboard_summary.dart';
 import 'package:thuethietbi_app/features/equipment/data/models/category.dart';
+import 'package:thuethietbi_app/features/equipment/data/models/equipment_history.dart';
 import 'package:thuethietbi_app/features/equipment/data/models/paged_equipment_result.dart';
 import 'package:thuethietbi_app/features/equipment/data/models/pending_model_image.dart';
 import 'package:thuethietbi_app/features/equipment/data/models/warehouse.dart';
@@ -63,6 +67,37 @@ class StorekeeperEquipmentApi {
     );
 
     return res.data;
+  }
+
+  Future<Uint8List> downloadModelImportTemplate() async {
+    final res = await _apiClient.get<List<int>>(
+      '/api/storekeeper/equipment-models/import-template',
+      options: Options(responseType: ResponseType.bytes),
+    );
+    return Uint8List.fromList(res.data ?? const <int>[]);
+  }
+
+  Future<Map<String, dynamic>> importModelsFromExcel({
+    String? filePath,
+    Uint8List? bytes,
+    required String fileName,
+  }) async {
+    final MultipartFile multipart;
+    if (filePath != null && filePath.isNotEmpty) {
+      multipart = await MultipartFile.fromFile(filePath, filename: fileName);
+    } else if (bytes != null && bytes.isNotEmpty) {
+      multipart = MultipartFile.fromBytes(bytes, filename: fileName);
+    } else {
+      throw ArgumentError('Không đọc được dữ liệu file Excel đã chọn.');
+    }
+
+    final formData = FormData.fromMap({'file': multipart});
+    // Không truyền cứng contentType 'multipart/form-data' để Dio tự sinh boundary chuẩn cho ASP.NET Core IFormFile
+    final res = await _apiClient.post<Map<String, dynamic>>(
+      '/api/storekeeper/equipment-models/import-excel',
+      data: formData,
+    );
+    return res.data ?? <String, dynamic>{};
   }
 
   Future<dynamic> updateModel(String id, Map<String, dynamic> payload) async {
@@ -302,4 +337,15 @@ class StorekeeperEquipmentApi {
       data: payload,
     );
   }
+
+  /// Lịch sử vòng đời thiết bị vật lý (bảo trì, linh kiện đã thay, chi phí, sự cố, lịch sử cho thuê).
+  Future<EquipmentLifecycleHistory> getEquipmentHistory(
+    String equipmentId,
+  ) async {
+    final res = await _apiClient.get<Map<String, dynamic>>(
+      '/api/storekeeper/equipments/$equipmentId/history',
+    );
+    return EquipmentLifecycleHistory.fromJson(res.data!);
+  }
+
 }

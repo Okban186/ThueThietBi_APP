@@ -22,6 +22,16 @@ class CustomerIncidentApi {
         .toList();
   }
 
+  /// Tra cứu chính xác máy công ty đang thuê bằng quét mã vạch / nhập số Serial.
+  Future<RentedEquipment> lookupRentedSerial(String serial) async {
+    final response = await _apiClient.get<Map<String, dynamic>>(
+      '/api/customer/equipments/lookup-serial',
+      queryParameters: {'serial': serial.trim()},
+    );
+
+    return RentedEquipment.fromJson(response.data!);
+  }
+
   Future<List<CustomerIncident>> getIncidents() async {
     final response = await _apiClient.get<List<dynamic>>(
       '/api/customer/incidents',
